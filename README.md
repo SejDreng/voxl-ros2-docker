@@ -104,6 +104,7 @@ Note: In this case user is root
   setup-qemu           Install QEMU user-static for arm64 emulation (run once)
 
 ---- BUILD IMAGES ----
+  build-deps           Build only the dependency base stage (useful to verify deps)
   build-dev            Build the full dev image (native x86_64)
   build-cross          Build the full dev image for arm64 via QEMU
   build-runtime        Build the slim runtime image for arm64
