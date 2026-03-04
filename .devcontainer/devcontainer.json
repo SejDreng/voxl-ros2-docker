@@ -1,8 +1,7 @@
 {
     "name": "Drone ROS2 Humble Dev",
     "dockerComposeFile": ["../docker/docker-compose.workstation.yml"],
-    // "service": "dev",
-    "service": "cross-arm64",
+    "service": "dev",
     "workspaceFolder": "/ros2_ws",
     "remoteUser": "voxl-dev",
     "customizations": {

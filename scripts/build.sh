@@ -40,6 +40,7 @@ Help: $(basename "$0") <command>
   build-dev            Build the full dev image (native x86_64)
   build-cross          Build the full dev image for arm64 via QEMU
   build-runtime        Build the slim runtime image for arm64
+  clean-build          Erase build images, containers, builders, and artifacts to allow for a complete rebuild
 
 ---- DEVELOPMENT (workstation) ----
   dev                  Open a shell in the native x86 dev container
@@ -98,6 +99,8 @@ cmd_build_dev() {
         --load \
         "${DOCKER_DIR}"
     echo "==> Built: ${IMAGE_NAME}:dev-amd64"
+    echo "    Image size:"
+    docker images "${IMAGE_NAME}:dev-amd64" --format "    {{.Size}}"
 }
 
 cmd_build_cross() {
@@ -110,6 +113,8 @@ cmd_build_cross() {
         --load \
         "${DOCKER_DIR}"
     echo "==> Built: ${IMAGE_NAME}:dev-arm64"
+    echo "    Image size:"
+    docker images "${IMAGE_NAME}:dev-arm64" --format "    {{.Size}}"
 }
 
 cmd_build_runtime() {
@@ -124,6 +129,35 @@ cmd_build_runtime() {
     echo "==> Built: ${IMAGE_NAME}:runtime-arm64"
     echo "    Image size:"
     docker images "${IMAGE_NAME}:runtime-arm64" --format "    {{.Size}}"
+}
+
+cmd_clean_build() {
+    echo "==> Stopping all project containers..."
+    docker compose -f "${DOCKER_DIR}/docker-compose_workstation.yml" down --remove-orphans 2>/dev/null || true
+
+    echo "==> Removing project images..."
+    docker images --filter "reference=${IMAGE_NAME}:*" -q | xargs -r docker rmi -f
+
+    echo "==> Removing named volumes..."
+    for vol in dev-build dev-install dev-log cross-build cross-install cross-log; do
+        docker volume rm "$vol" 2>/dev/null && echo "    Removed volume: $vol" || true
+    done
+
+    echo "==> Stopping and removing buildx builders..."
+    docker buildx stop multiarch 2>/dev/null || true
+    docker buildx rm multiarch 2>/dev/null || true
+
+    echo "==> Pruning build cache..."
+    docker builder prune -af
+
+    echo "==> Pruning dangling images and stopped containers..."
+    docker system prune -af
+
+    echo "==> Removing exported image tarball (if any)..."
+    rm -f "${PROJECT_DIR}/voxl-runtime-arm64.tar.gz"
+
+    echo ""
+    echo "==> Clean complete. Run 'setup-qemu' again if you need cross-builds."
 }
 
 # ============================= DEVELOPMENT ===================================
@@ -271,6 +305,7 @@ case "${1:-}" in
     build-dev)        cmd_build_dev ;;
     build-cross)      cmd_build_cross ;;
     build-runtime)    cmd_build_runtime ;;
+    clean-build)      cmd_clean_build ;; 
     dev)              cmd_dev ;;
     cross)            cmd_cross ;;
     build-ws)         cmd_build_ws ;;

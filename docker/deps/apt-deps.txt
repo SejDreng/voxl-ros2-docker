@@ -15,8 +15,17 @@
 # Package: libgflags-dev needed in:
 libgflags-dev
 
+# Package: libboost-dev needed in:
+libboost-dev
+
+# Package: libboost-serialization-dev needed in:
+libboost-serialization-dev
+
 # Package: libeigen3-dev needed in:
 libeigen3-dev
+
+# Package: libssl-dev needed in:
+libssl-dev
 
 # Package: libgtk2.0-dev needed in:
 libgtk2.0-dev

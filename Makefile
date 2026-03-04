@@ -36,6 +36,10 @@ build-cross: ## Build the full dev image for arm64 via QEMU
 build-runtime: ## Build the slim runtime image for arm64
 	@$(SCRIPT) build-runtime
 
+.PHONY: clean-build
+clean-build: # Erase build images, containers, builders, and artifacts to allow for a complete rebuild
+	@$(SCRIPT) clean-build
+
 # ---- DEVELOPMENT (workstation) ----
 
 .PHONY: dev

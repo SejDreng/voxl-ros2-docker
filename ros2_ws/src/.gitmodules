@@ -1,0 +1,15 @@
+[submodule "vins_multi"]
+	path = vins_multi
+	url = https://github.com/JonanaBanana/VINS-Multi-ROS2.git
+[submodule "rovtio_ros2"]
+	path = rovtio_ros2
+	url = https://github.com/JonanaBanana/rovtio_ros2.git
+[submodule "rovtio_interfaces_ros2"]
+	path = rovtio_interfaces_ros2
+	url = https://github.com/JonanaBanana/rovtio_interfaces_ros2.git
+[submodule "orbslam3_ros2"]
+	path = orbslam3_ros2
+	url = https://github.com/JonanaBanana/ORB_SLAM3_ROS2.git
+[submodule "AerialTN"]
+	path = AerialTN
+	url = https://github.com/JonanaBanana/AerialTN.git

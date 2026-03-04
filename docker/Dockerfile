@@ -54,6 +54,7 @@ RUN apt-get update && apt-get install -y \
 # Install ROS2 packages (base + build tools)
 RUN apt-get update && apt-get install -y \
   ros-humble-ros-base \
+  ros-humble-vision-opencv \
   ros-humble-rmw-cyclonedds-cpp \
   ros-humble-launch-testing \
   ros-humble-ament-cmake \
@@ -63,6 +64,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install --no-install-recommends -y \
   build-essential \
   cmake \
+  ninja-build \
   git \
   wget \
   pkg-config \
@@ -76,21 +78,45 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 RUN rosdep init || true && rosdep update --rosdistro humble
 
 # Third-party apt dependencies (dev packages: headers + libs)
+RUN echo "===== Building Third-Party apt dependencies ====="
 COPY deps/apt-deps.txt /tmp/apt-deps.txt
 RUN apt-get update \
   && grep -vE '^\s*#|^\s*$' /tmp/apt-deps.txt | xargs -r apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Third-party Python dependencies
+RUN echo "===== Building Third-Party Python dependencies ====="
 COPY deps/pip-requirements.txt /tmp/pip-requirements.txt
 RUN pip3 install --no-cache-dir -r /tmp/pip-requirements.txt
 
 # Third-party source builds (clone git repos etc... Each build is its own RUN layer so they cache independently - PIN to tag for reproducability)
-COPY voxl_airlab_thirdparty/ /thirdparty
-RUN chmod +x /thirdparty/build_thirdparty_minimal.sh \
-  && cd /thirdparty \
-  && ./build_thirdparty_minimal.sh 
- 
+RUN echo "===== Building Third-Party dependencies ====="
+COPY voxl_airlab_thirdparty/ thirdparty/
+
+# PANGOLIN
+RUN apt update \
+  && cd /thirdparty/build_scripts/ \
+  && chmod +x build_pangolin.sh \
+  && ./build_pangolin.sh
+
+# CERES-SOLVER/
+RUN apt update \
+  && cd /thirdparty/build_scripts/ \
+  && chmod +x build_ceres.sh \
+  && ./build_ceres.sh
+
+# KINDR
+RUN apt update \
+  && cd /thirdparty/build_scripts/ \
+  && chmod +x build_kindr.sh \
+  && ./build_kindr.sh 
+
+# ORBSLAM3
+RUN apt update \
+  && cd /thirdparty/build_scripts/ \
+  && chmod +x build_orbslam3.sh \
+  && ./build_orbslam3.sh 
+
 # ROSDEP DRYRUN AS LAST STEP OF DEPS SETUP
 
 # Refresh the linker chache so shared libs under /usr/local/lib are found
@@ -114,24 +140,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # RMW
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
-# Create non-root user
-ARG USERNAME=voxl-dev
-ARG USER_UID=1000
-ARG USER_GID=1000
-RUN groupadd --gid ${USER_GID} ${USERNAME} \
-  && useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} -s /bin/bash \
-  && echo "${USERNAME} ALL=(ALL) NOPASSWD=ALL" >> /etc/sudoers.d/${USERNAME}
+# Preemptive directory create
+RUN mkdir -p /ros2_ws/build /ros2_ws/install /ros2_ws/log
 
-# USER ${USERNAME}
-# WORKDIR /ros2_ws
-RUN mkdir -p /ros2_ws/build /ros2_ws/install /ros2_ws/log \
-  && chown -R ${USER_UID}:${USER_GID} /ros2_ws /thirdparty
-
-USER ${USERNAME}
+# Set work dir
 WORKDIR /ros2_ws
 
-RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USERNAME}/.bashrc \
-  && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /home/${USERNAME}/.bashrc
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc \
+  && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /root/.bashrc
 
 CMD ["/bin/bash"]
 
@@ -177,6 +193,9 @@ RUN apt-get update \
 COPY deps/pip-requirements.txt /tmp/pip-requirements.txt
 RUN pip3 install --no-cache-dir -r /tmp/pip-requirements.txt
 
+# Make thirdparty directory (created by COPY??)
+# RUN mkdir thirdparty
+
 # Copy source-built libraries from deps stage (Only the installed artifacts - no source code)
 COPY --from=voxl-deps /usr/local/lib /usr/local/lib
 COPY --from=voxl-deps /usr/local/share/ /usr/local/share
@@ -187,21 +206,12 @@ RUN ldconfig
 # RMW
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
-# Create non-root user 
-ARG USERNAME=voxl-dev
-ARG USER_UID=1000
-ARG USER_GID=1000
-RUN groupadd --gid ${USER_GID} ${USERNAME} \
-  && useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} -s /bin/bash \
-  && echo "${USERNAME} ALL=(ALL) NOPASSWD=ALL" >> /etc/sudoers.d/${USERNAME}
-
-RUN mkdir -p /ros2_ws/build /ros2_ws/install /ros2_ws/log \
-  && chown -R ${USER_UID}:${USER_GID} /ros2_ws /thirdparty
-USER ${USERNAME}
+# Preemptive directory create
+RUN mkdir -p /ros2_ws/build /ros2_ws/install /ros2_ws/log 
 WORKDIR /ros2_ws
 
-RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USERNAME}/.bashrc \
-  && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /home/${USERNAME}/.bashrc
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc \
+  && echo "if [ -f /ros2_ws/install/setup.bash ]; then source /ros2_ws/install/setup.bash; fi" >> /root/.bashrc
 
 CMD ["/bin/bash"]
 
