@@ -74,8 +74,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   python3-vcstool \
   && rm -rf /var/lib/apt/lists/*
 
-RUN echo "===== Setting Ninja as build preference ====="
-ENV CMAKE_GENERATOR=Ninja 
 # Initialize rosdep
 RUN rosdep init || true && rosdep update --rosdistro humble
 
@@ -112,6 +110,12 @@ RUN apt update \
   && cd /thirdparty/build_scripts/ \
   && chmod +x build_orbslam3.sh \
   && ./build_orbslam3.sh 
+
+# VINS-Core
+RUN apt update \
+  && cd /thirdparty/build_scripts/ \
+  && chmod +x build_vins_core.sh \
+  && ./build_vins_core.sh 
 
 # ROSDEP DRYRUN AS LAST STEP OF DEPS SETUP
 
