@@ -52,12 +52,15 @@ RUN apt-get update && apt-get install -y \
   && rm -rf /var/lib/apt/lists/*
 
 # Install ROS2 packages (base + build tools)
+#TODO: remove image_transport and image_view dependency from rovtio (not necessary)
 RUN apt-get update && apt-get install -y \
   ros-humble-ros-base \
   ros-humble-vision-opencv \
   ros-humble-rmw-cyclonedds-cpp \
   ros-humble-launch-testing \
   ros-humble-ament-cmake \
+  ros-humble-image-transport \
+  ros-humble-image-view \
   && rm -rf /var/lib/apt/lists/*
 
 # Install bootstrap tools
@@ -171,10 +174,13 @@ RUN apt-get update && apt-get install -y \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && rm -rf /var/lib/apt/lists/*
 
-# Install ROS2 packages (base + build tools)
+# Install ROS2 packages (base + build tools) 
+#TODO: remove image_transport and image_view dependency from rovtio (not necessary)
 RUN apt-get update && apt-get install -y \
   ros-humble-ros-base \
   ros-humble-rmw-cyclonedds-cpp \
+  ros-humble-image-transport \
+  ros-humble-image-view \
   && rm -rf /var/lib/apt/lists/*
 
 # Minimal system packages
