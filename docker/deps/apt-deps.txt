@@ -69,5 +69,8 @@ libglew-dev
 # Package: libmetis-dev needed in:
 libmetis-dev
 
-# Pacakge: unzip needed in:
+# Package: unzip needed in:
 unzip
+
+# Package: ffmpeg needed in:
+ffmpeg
