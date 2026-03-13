@@ -12,6 +12,7 @@ services:
     privileged: true
     network_mode: host
     ipc: host
+    shm_size: '256mb'
     volumes:
       - ./ros2_ws:/ros2_ws                            # Modified ros2_ws containing only required files for runtime
       - /dev:/dev                                     # Serial ports, cameras, IMU, GPIO

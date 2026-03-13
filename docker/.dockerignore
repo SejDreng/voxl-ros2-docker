@@ -1,6 +1,7 @@
 .git
 build/
 install/
+src/
 log/
 deploy/
 *.pyc

@@ -1,21 +1,8 @@
-<!-- <CycloneDDS>
-  <Domain>
-    <General>
-      <NetworkInterface name="wlan0"/>
-      <AllowMulticast>true</AllowMulticast>
-    </General>
-    <SharedMemory>
-      <Enable>true</Enable>
-    </SharedMemory>
-  </Domain>
-</CycloneDDS> -->
-
 <CycloneDDS>
   <Domain>
     <General>
       <Interfaces>
-        <NetworkInterface name="lo"/>
-        <NetworkInterface name="docker0"/>
+        <NetworkInterface name="wlan0"/>
       </Interfaces>
       <AllowMulticast>true</AllowMulticast>
     </General>
@@ -25,3 +12,19 @@
     </SharedMemory>
   </Domain>
 </CycloneDDS>
+
+<!-- <CycloneDDS>
+  <Domain>
+    <General>
+      <Interfaces>
+        <NetworkInterface name="lo"/>
+        <NetworkInterface name="wlan0"/>
+      </Interfaces>
+      <AllowMulticast>true</AllowMulticast>
+    </General>
+
+    <SharedMemory>
+      <Enable>true</Enable>
+    </SharedMemory>
+  </Domain>
+</CycloneDDS> -->
