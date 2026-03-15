@@ -129,6 +129,25 @@ Note: In this case user is root
   voxl-stop           Stop the voxl-drone container
 ```
 
+### Docker Compose Compatibility (VOXL)
+The drone-side commands in `scripts/build.sh` now auto-detect which compose command is installed on VOXL:
+- `docker compose` (Compose v2 plugin)
+- `docker-compose` (Compose v1 binary)
+
+This allows older VOXL images (commonly Ubuntu 18.04 setups with Compose v1 only) to use:
+- `make deploy`
+- `make voxl-start`
+- `make voxl-logs`
+- `make voxl-stop`
+
+Optional override in `.env` (default is auto-detect):
+```
+VOXL_COMPOSE_CMD=auto
+# or force one:
+# VOXL_COMPOSE_CMD=docker-compose
+# VOXL_COMPOSE_CMD=docker compose
+```
+
 ### Tips n' Tricks
 
 <details>

@@ -51,37 +51,18 @@ RUN apt-get update && apt-get install -y \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && rm -rf /var/lib/apt/lists/*
 
-# Install ROS2 packages (base + build tools)
-#TODO: remove image_transport and image_view dependency from rovtio (not necessary)
+# Install minimal ROS2 packages for Python node workflow
 RUN apt-get update && apt-get install -y \
   ros-humble-ros-base \
   ros-humble-rmw-cyclonedds-cpp \
-  ros-humble-rmw-fastrtps-cpp \
-  ros-humble-launch-testing \
-  ros-humble-ament-cmake \
-  && rm -rf /var/lib/apt/lists/*
-
-# Smaller ROS2 packages (apt) - Layered for cachability
-RUN apt-get update && apt-get install -y \
-  ros-humble-vision-opencv \
-  ros-humble-v4l2-camera \
-  ros-humble-image-transport \
-  ros-humble-ffmpeg-image-transport \
-  ros-humble-image-view \
-  ros-humble-rosbag2-storage-mcap \
   && rm -rf /var/lib/apt/lists/*
 
 # Install bootstrap tools
 RUN apt-get update && apt-get install --no-install-recommends -y \
   build-essential \
-  cmake \
-  ninja-build \
   git \
-  wget \
   iproute2 \
-  pkg-config \
   python3-pip \
-  python3-colcon-common-extensions \
   python3-rosdep \
   python3-vcstool \
   && rm -rf /var/lib/apt/lists/*
@@ -146,6 +127,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   gdb \
   vim \
   ssh \
+  tmux \
   sudo \
   && rm -rf /var/lib/apt/lists/*
 
@@ -183,27 +165,16 @@ RUN apt-get update && apt-get install -y \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null \
   && rm -rf /var/lib/apt/lists/*
 
-# Install ROS2 packages (base + build tools) 
+# Install minimal ROS2 packages for runtime
 RUN apt-get update && apt-get install -y \
   ros-humble-ros-base \
   ros-humble-rmw-cyclonedds-cpp \
-  ros-humble-rmw-fastrtps-cpp \
-  && rm -rf /var/lib/apt/lists/*
-
-# TODO: remove image_transport and image_view dependency from rovtio (not necessary)
-# Smaller ROS2 packages (apt) - Layered for cachability (remove v4l2-cameram, image-transport, ffmpeg-image-transtport)
-RUN apt-get update && apt-get install -y \
-  ros-humble-v4l2-camera \
-  ros-humble-image-transport \
-  ros-humble-ffmpeg-image-transport \
-  ros-humble-image-view \
-  ros-humble-rosbag2-storage-mcap \
   && rm -rf /var/lib/apt/lists/*
 
 # Minimal system packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
   python3-pip \
-  sudo \ 
+  tmux \
   && rm -rf /var/lib/apt/lists/*
 
 COPY deps/apt-deps.txt /tmp/apt-deps.txt

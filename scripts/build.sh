@@ -19,11 +19,47 @@ IMAGE_NAME="voxl-drone"
 VOXL_USER="${VOXL_USER:-ubuntu}"
 VOXL_HOST="${VOXL_HOST:-drone.local}"
 VOXL_DIR="${VOXL_DIR:-/voxl_docker}"
+VOXL_COMPOSE_CMD="${VOXL_COMPOSE_CMD:-auto}"
+
+REMOTE_COMPOSE_BIN=""
 
 # Load .env if present
 if [ -f "${PROJECT_DIR}/.env" ]; then
     set -a; source "${PROJECT_DIR}/.env"; set +a
 fi
+
+resolve_remote_compose_bin() {
+    if [ -n "${REMOTE_COMPOSE_BIN}" ]; then
+        echo "${REMOTE_COMPOSE_BIN}"
+        return
+    fi
+
+    if [ "${VOXL_COMPOSE_CMD}" != "auto" ]; then
+        REMOTE_COMPOSE_BIN="${VOXL_COMPOSE_CMD}"
+        echo "${REMOTE_COMPOSE_BIN}"
+        return
+    fi
+
+    if ssh "${VOXL_USER}@${VOXL_HOST}" "docker compose version >/dev/null 2>&1"; then
+        REMOTE_COMPOSE_BIN="docker compose"
+    elif ssh "${VOXL_USER}@${VOXL_HOST}" "command -v docker-compose >/dev/null 2>&1"; then
+        REMOTE_COMPOSE_BIN="docker-compose"
+    else
+        echo "==> ERROR: No Docker Compose command found on drone (tried 'docker compose' and 'docker-compose')." >&2
+        return 1
+    fi
+
+    echo "==> Using remote compose command: ${REMOTE_COMPOSE_BIN}" >&2
+    echo "${REMOTE_COMPOSE_BIN}"
+}
+
+run_remote_compose() {
+    local compose_args="$1"
+    local compose_bin
+    compose_bin="$(resolve_remote_compose_bin)" || return 1
+    ssh -t "${VOXL_USER}@${VOXL_HOST}" \
+        "cd ${VOXL_DIR} && ${compose_bin} -f docker-compose.yml ${compose_args}"
+}
 
 help() {
     cat <<EOF
@@ -132,7 +168,7 @@ cmd_build_runtime() {
 
 cmd_clean_build() {
     echo "==> Stopping all project containers..."
-    docker compose -f "${DOCKER_DIR}/docker-compose_workstation.yml" down --remove-orphans 2>/dev/null || true
+    docker compose -f "${DOCKER_DIR}/docker-compose.workstation.yml" down --remove-orphans 2>/dev/null || true
 
     echo "==> Removing project images..."
     docker images --filter "reference=${IMAGE_NAME}:*" -q | xargs -r docker rmi -f
@@ -210,13 +246,13 @@ cmd_deploy() {
     local deploy_dir="${PROJECT_DIR}/deploy"
     local ros2_install="${deploy_dir}/ros2_ws/install"
 
-    sudo chown -R $(id -u):$(id -g) "${deploy_dir}" 2>/dev/null || true
+    sudo chown -R "$(id -u):$(id -g)" "${deploy_dir}" 2>/dev/null || true
 
     # clean deploy dir prior to extract
-    cd ${deploy_dir} && rm -fr * # OBS TODO: SKIP DELETE OF DATA FOLDER FOR OUTPUTS
+    cd "${deploy_dir}" && rm -fr ./* # OBS TODO: SKIP DELETE OF DATA FOLDER FOR OUTPUTS
 
     echo "==> Preparing deploy directory..."
-    mkdir -p ${ros2_install}
+    mkdir -p "${ros2_install}"
 
 
     # Open QEMU ARM64 container and copy install and source files and resolve symlinks
@@ -237,8 +273,12 @@ cmd_deploy() {
 
     # Stop the running container before syncing new files
     echo "==> Stopping drone container (if running)..."
-    ssh "${VOXL_USER}@${VOXL_HOST}" \
-        "cd ${VOXL_DIR} 2>/dev/null && docker compose down 2>/dev/null || true"
+    local compose_bin
+    compose_bin="$(resolve_remote_compose_bin)" || true
+    if [ -n "${compose_bin}" ]; then
+        ssh "${VOXL_USER}@${VOXL_HOST}" \
+            "cd ${VOXL_DIR} 2>/dev/null && ${compose_bin} -f docker-compose.yml down 2>/dev/null || true"
+    fi
 
     echo "==> Beginning transfer to VOXL2..."
 
@@ -253,7 +293,7 @@ cmd_deploy() {
 
     # Copy install files
     echo "==> Syncing to ${VOXL_USER}@${VOXL_HOST}:${VOXL_DIR}..."
-    ssh "${VOXL_USER}@${VOXL_HOST}" "mkdir -p ${VOXL_DIR}" # Ensure VOXL_DIR exists on drone
+    ssh "${VOXL_USER}@${VOXL_HOST}" "mkdir -p \"${VOXL_DIR}\"" # Ensure VOXL_DIR exists on drone
     rsync -avz --progress --delete \
         "${deploy_dir}/" \
         "${VOXL_USER}@${VOXL_HOST}:${VOXL_DIR}/"
@@ -289,8 +329,7 @@ cmd_deploy_image() {
 
 cmd_voxl_start() {
     echo "==> Starting drone container on ${VOXL_HOST}..."
-    ssh -t "${VOXL_USER}@${VOXL_HOST}" \
-        "cd ${VOXL_DIR} && docker compose -f docker-compose.yml up -d"
+    run_remote_compose "up -d"
 }
 
 cmd_voxl_shell() {
@@ -309,14 +348,15 @@ cmd_voxl_shell() {
 }
 
 cmd_voxl_logs() {
+    local compose_bin
+    compose_bin="$(resolve_remote_compose_bin)" || return 1
     ssh "${VOXL_USER}@${VOXL_HOST}" \
-        "cd ${VOXL_DIR} && docker compose logs -f --tail=100"
+        "cd ${VOXL_DIR} && ${compose_bin} -f docker-compose.yml logs -f --tail=100"
 }
 
 cmd_voxl_stop() {
     echo "==> Stopping voxl-drone container..."
-    ssh -t "${VOXL_USER}@${VOXL_HOST}" \
-        "cd ${VOXL_DIR} && docker compose down"
+    run_remote_compose "down"
 }
 
 # =============================================================================

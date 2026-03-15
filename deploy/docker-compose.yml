@@ -4,6 +4,8 @@
 # Uses the SLIM runtime image — no compilers, no dev tools
 # Pre-built install/ artifacts are mounted in via volume
 # =============================================================================
+version: "3.3"
+
 services:
   voxl:
     image: voxl-drone:runtime-arm64                   # Pre-built slim image
@@ -19,7 +21,7 @@ services:
       - ./cyclonedds.xml:/tmp/cyclonedds.xml
       - ./entrypoint.sh:/tmp/entrypoint.sh
     environment:
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - ROS_DOMAIN_ID=0
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - CYCLONEDDS_URI=file:///tmp/cyclonedds.xml
     restart: unless-stopped

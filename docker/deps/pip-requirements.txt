@@ -1,22 +1,20 @@
 # ==========================================================
-# Python packages needed.
+# Python packages for ROS2 NN workflow.
 # Installed in both voxl-deps (dev) and voxl-runtime stages.
-#
-# Rules:
-#   - One package per line
-#   - Comment with where it is needed
-#   - Pin versions for reproducibility
-#   - Lines starting with # and blank lines are ignored
 # ==========================================================
 
-# EXAMPLE
-# Package: numpy==1.24.4 needed in: voxl-blabla-package
-
-# Package: setuptools needed in: 
 setuptools
-
-# Package: wheel needed in:
 wheel
-
-# Package: catkin_pkg needed in:
 catkin_pkg
+numpy
+
+# Backend 1: native PyTorch runtime
+torch
+
+# Backend 2: TFLite runtime
+tflite-runtime
+
+# ONNX conversion and runtime
+onnx
+onnxruntime
+onnxscript

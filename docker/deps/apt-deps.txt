@@ -1,76 +1,11 @@
 # ==========================================================
-# Development packages (headers + static/shared libs)
-# Installed in the voxl-deps stage for comilation
-# 
+# Optional apt dependencies for NN workflow.
+# Keep this file minimal to reduce image complexity.
+#
 # Rules:
 #   - One package per line
-#   - Comment with where it is needed
 #   - Lines starting with # and blank lines are ignored
 # ==========================================================
 
-# EXAMPLE
-# Package: libopencv-dev needed in: voxl-blabla-package
-# libopencv-dev
-
-# Package: libgflags-dev needed in:
-libgflags-dev
-
-# Package: libboost-dev needed in:
-libboost-dev
-
-# Package: libboost-serialization-dev needed in:
-libboost-serialization-dev
-
-# Package: libeigen3-dev needed in:
-libeigen3-dev
-
-# Package: libssl-dev needed in:
-libssl-dev
-
-# Package: libgtk2.0-dev needed in:
-libgtk2.0-dev
-
-# Package: libgtk-3-dev needed in:
-libgtk-3-dev
-
-# Package: libavcodec-dev needed in:
-libavcodec-dev
-
-# Package: libavformat-dev needed in:
-libavformat-dev
-
-# Package: libavutil-dev needed in:
-libavutil-dev
-
-# Package: libavdevice-dev needed in:
-libavdevice-dev
-
-# Package: libswscale-dev needed in:
-libswscale-dev
-
-# Package: libblas-dev needed in:
-libblas-dev
-
-# Package: liblapack-dev needed in:
-liblapack-dev
-
-# Package: libatlas-base-devneeded in:
-libatlas-base-dev
-
-# Package: libsuitesparse-dev needed in:
-libsuitesparse-dev
-
-# Package: freeglut3-dev needed in:
-freeglut3-dev
-
-# Package: libglew-dev needed in:
-libglew-dev
-
-# Package: libmetis-dev needed in:
-libmetis-dev
-
-# Package: unzip needed in:
-unzip
-
-# Package: ffmpeg needed in:
-ffmpeg
+# No additional apt packages are required for the baseline
+# ROS2 Python + PyTorch/TFLite workflow.

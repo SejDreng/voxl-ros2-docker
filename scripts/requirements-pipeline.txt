@@ -1,0 +1,13 @@
+# Workstation-only: PyTorch -> ONNX -> TFLite conversion pipeline
+# Requires Python 3.11 
+# Setup:
+#   python3.11 -m venv .venv && source .venv/bin/activate
+#   pip install -r scripts/requirements-pipeline.txt
+
+--extra-index-url https://download.pytorch.org/whl/cu126 # For GPU support, otherwise omit for CPU-only
+torch
+torchvision
+onnx
+onnxscript
+onnx2tf
+tensorflow-cpu
