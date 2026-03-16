@@ -96,6 +96,132 @@ Note: In this case user is root
 
 ### Complete Setup and Workflow
 
+### Persistent ROS2 Discovery (Drone + Workstation)
+
+This project now supports a persistent setup so you do not need to manually export ROS variables and run discovery commands each session.
+
+#### Why this is needed
+
+On many Wi-Fi/LAN setups, ROS2 multicast discovery is filtered. In that case, ROS2 nodes can run but cross-machine topic discovery fails. The reliable workaround is Fast DDS Discovery Server mode.
+
+#### 1) Drone: install persistent services (one-time)
+
+Service templates are provided in `deploy/systemd/`:
+- `deploy/systemd/voxl-ros2-network.env`
+- `deploy/systemd/fastdds-discovery.service`
+- `deploy/systemd/voxl-mpa-to-ros2.service`
+
+Copy them to VOXL (adjust host/user as needed):
+
+```bash
+scp deploy/systemd/voxl-ros2-network.env root@192.168.50.33:/tmp/
+scp deploy/systemd/fastdds-discovery.service root@192.168.50.33:/tmp/
+scp deploy/systemd/voxl-mpa-to-ros2.service root@192.168.50.33:/tmp/
+```
+
+On the drone:
+
+```bash
+sudo cp /tmp/voxl-ros2-network.env /etc/default/voxl-ros2-network
+sudo cp /tmp/fastdds-discovery.service /etc/systemd/system/
+sudo cp /tmp/voxl-mpa-to-ros2.service /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now fastdds-discovery.service
+sudo systemctl enable --now voxl-mpa-to-ros2.service
+```
+
+Check status/logs:
+
+```bash
+sudo systemctl status fastdds-discovery.service
+sudo systemctl status voxl-mpa-to-ros2.service
+journalctl -u fastdds-discovery.service -f
+journalctl -u voxl-mpa-to-ros2.service -f
+```
+
+#### Service toggle (save drone resources)
+
+By default, `make setup-voxl-services` enables **both** services at boot:
+
+- `fastdds-discovery.service`
+- `voxl-mpa-to-ros2.service`
+
+If you want discovery to stay available but avoid running camera bridge all the time, disable only the bridge service:
+
+```bash
+sudo systemctl disable --now voxl-mpa-to-ros2.service
+```
+
+Re-enable it later when needed:
+
+```bash
+sudo systemctl enable --now voxl-mpa-to-ros2.service
+```
+(fastdds-discoverycan also be disabled, but it allows communication in general. It is recomended to keep running)
+```bash
+sudo systemctl disable --now fastdds-discovery.service
+```
+
+If `voxl-mpa-to-ros2.service` fails with `Package 'voxl_mpa_to_ros2' not found`, the service is missing workspace overlay sourcing (including the VOXL package overlay under `/opt/ros/foxy/mpa_to_ros2/install`). Re-apply the templates and restart services:
+
+```bash
+make setup-voxl-services
+
+# Optional manual restart/check
+ssh root@192.168.50.33 "sudo systemctl restart voxl-mpa-to-ros2.service && sudo systemctl status voxl-mpa-to-ros2.service --no-pager -l"
+```
+
+The service template also supports launching the node binary directly via `VOXL_MPA_NODE_BIN` in `/etc/default/voxl-ros2-network`, which is more robust under systemd than `ros2 run` package lookup.
+
+#### 2) Workstation: required firewall rules (one-time)
+
+If using firewalld on the workstation host, allow DDS/discovery UDP ports on the active zone:
+
+```bash
+sudo firewall-cmd --get-active-zones
+sudo firewall-cmd --zone=public --add-port=11811/udp --permanent
+sudo firewall-cmd --zone=public --add-port=7400-7600/udp --permanent
+sudo firewall-cmd --reload
+```
+
+Optional hardened rules (drone-only source) can be used instead of broad port opens.
+
+#### 3) Workstation dev container defaults
+
+`docker/docker-compose.workstation.yml` already contains defaults for discovery-server mode:
+
+- `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
+- `ROS_DISCOVERY_SERVER=192.168.50.33:11811`
+- `ROS_SUPER_CLIENT=TRUE`
+
+Start the dev shell as usual:
+
+```bash
+make dev
+```
+
+Verify from container:
+
+```bash
+ros2 topic list --no-daemon
+```
+
+#### 4) View camera topics
+
+Inside `voxl-dev` container:
+
+```bash
+ros2 run rqt_image_view rqt_image_view
+```
+
+Recommended first topic:
+- `/hires_small_color`
+
+Notes:
+- `*_encoded` topics are usually lighter over network.
+- High-resolution streams can exceed available Wi-Fi throughput.
+
 
 
 ### Build commands (scripts/build.sh)

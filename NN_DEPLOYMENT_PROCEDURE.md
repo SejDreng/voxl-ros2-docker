@@ -35,11 +35,10 @@ Avoid adding unrelated CV/SLAM/GUI dependencies unless needed by your actual mod
 
 Inside `ros2_ws/src` create one package (example: `nn_inference_node`) with:
 - `package.xml`
-- `setup.py`
-- `setup.cfg`
+- `CMakeLists.txt`
 - `nn_inference_node/__init__.py`
 - `nn_inference_node/node.py`
-- `nn_inference_node/models/`
+- `nn_inference_node/runtime_models/`
 
 Recommended runtime parameter in node:
 - `backend`: `pytorch` or `tflite`
@@ -52,6 +51,12 @@ Node behavior (minimal):
 - publish output topic
 
 ---
+
+### EXTENSION
+
+Create ros2 package running two nodes. One that runs a tflite yolo model for inference on GPU, and one node that runs parallel pytorch training on CPU (The Voxl NPU is not cuda compatible). 
+It would have to have on-board datasets for training since it is suporvised. This is just to test the feasability of running on board training. Will be usefull knowledge for later unsuporvised training of models.
+
 
 ## 3) Train on Workstation (PyTorch)
 

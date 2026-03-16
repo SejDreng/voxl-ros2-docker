@@ -55,6 +55,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
   ros-humble-ros-base \
   ros-humble-rmw-cyclonedds-cpp \
+  ros-humble-rmw-fastrtps-cpp \
   && rm -rf /var/lib/apt/lists/*
 
 # Install bootstrap tools
@@ -129,6 +130,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ssh \
   tmux \
   sudo \
+  iputils-ping \
+  netcat-openbsd \
+  ros-humble-rviz2 \
+  ros-humble-rqt-image-view \
   && rm -rf /var/lib/apt/lists/*
 
 # RMW
@@ -169,6 +174,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
   ros-humble-ros-base \
   ros-humble-rmw-cyclonedds-cpp \
+  ros-humble-rmw-fastrtps-cpp \
   && rm -rf /var/lib/apt/lists/*
 
 # Minimal system packages

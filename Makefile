@@ -18,6 +18,10 @@ help: ## Display all commands
 setup-qemu: ## Install QEMU user-static for arm64 emulation (run once)
 	@$(SCRIPT) setup-qemu
 
+.PHONY: setup-voxl-services
+setup-voxl-services: ## Install and enable FastDDS + voxl_mpa_to_ros2 systemd services on VOXL
+	@$(SCRIPT) setup-voxl-services
+
 # ---- BUILD IMAGES ----
 
 .PHONY: build-deps

@@ -22,6 +22,7 @@ services:
       - ./entrypoint.sh:/tmp/entrypoint.sh
     environment:
       - ROS_DOMAIN_ID=0
+      - ROS_LOCALHOST_ONLY=0
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - CYCLONEDDS_URI=file:///tmp/cyclonedds.xml
     restart: unless-stopped

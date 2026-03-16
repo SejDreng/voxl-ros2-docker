@@ -47,6 +47,7 @@ deploy/install/
 # IDE / Editor
 # =============================================================================
 .vscode/*
+.vscode
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/extensions.json

@@ -23,11 +23,16 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ${XAUTHORITY:-$HOME/.Xauthority}:/tmp/.docker.xauth:ro
       - /dev:/dev                                     # Serial ports, cameras, etc...
+      - ./cyclonedds.xml:/etc/cyclonedds.xml:ro
     environment:
       - DISPLAY=${DISPLAY}
       - XAUTHORITY=/tmp/.docker.xauth
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - ROS_LOCALHOST_ONLY=0
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - ROS_DISCOVERY_SERVER=${ROS_DISCOVERY_SERVER:-192.168.50.33:11811}
+      - ROS_SUPER_CLIENT=${ROS_SUPER_CLIENT:-TRUE}
+      - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
     stdin_open: true
     tty: true
     command: /bin/bash

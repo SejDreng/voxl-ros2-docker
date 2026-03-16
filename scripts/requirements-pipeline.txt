@@ -10,4 +10,8 @@ torchvision
 onnx
 onnxscript
 onnx2tf
+onnxruntime
 tensorflow-cpu
+ultralytics
+numpy
+Pillow

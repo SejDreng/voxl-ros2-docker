@@ -70,6 +70,7 @@ Help: $(basename "$0") <command>
 
 ---- ONE-TIME SETUP ----
   setup-qemu           Install QEMU user-static for arm64 emulation (run once)
+    setup-voxl-services  Install and enable FastDDS + voxl_mpa_to_ros2 systemd services on VOXL
 
 ---- BUILD IMAGES ----
   build-deps           Build only the dependency base stage (useful to verify deps)
@@ -108,6 +109,42 @@ cmd_setup_qemu() {
     docker buildx inspect --bootstrap
     echo ""
     echo "==> Done. You can now build arm64 images on this x86 machine."
+}
+
+cmd_setup_voxl_services() {
+    local services_dir="${PROJECT_DIR}/deploy/systemd"
+    local env_file="${services_dir}/voxl-ros2-network.env"
+    local discovery_service="${services_dir}/fastdds-discovery.service"
+    local bridge_service="${services_dir}/voxl-mpa-to-ros2.service"
+
+    if [ ! -f "${env_file}" ] || [ ! -f "${discovery_service}" ] || [ ! -f "${bridge_service}" ]; then
+        echo "==> ERROR: Missing one or more required files in ${services_dir}" >&2
+        return 1
+    fi
+
+    echo "==> Copying systemd files to ${VOXL_USER}@${VOXL_HOST}..."
+    scp "${env_file}" "${VOXL_USER}@${VOXL_HOST}:/tmp/voxl-ros2-network.env"
+    scp "${discovery_service}" "${VOXL_USER}@${VOXL_HOST}:/tmp/fastdds-discovery.service"
+    scp "${bridge_service}" "${VOXL_USER}@${VOXL_HOST}:/tmp/voxl-mpa-to-ros2.service"
+
+    echo "==> Installing and enabling services on drone..."
+    ssh "${VOXL_USER}@${VOXL_HOST}" '
+        set -e
+        if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=""; fi
+
+        $SUDO install -m 0644 /tmp/voxl-ros2-network.env /etc/default/voxl-ros2-network
+        $SUDO install -m 0644 /tmp/fastdds-discovery.service /etc/systemd/system/fastdds-discovery.service
+        $SUDO install -m 0644 /tmp/voxl-mpa-to-ros2.service /etc/systemd/system/voxl-mpa-to-ros2.service
+
+        $SUDO systemctl daemon-reload
+        $SUDO systemctl enable --now fastdds-discovery.service
+        $SUDO systemctl enable --now voxl-mpa-to-ros2.service
+
+        $SUDO systemctl --no-pager --full status fastdds-discovery.service | cat
+        $SUDO systemctl --no-pager --full status voxl-mpa-to-ros2.service | cat
+    '
+
+    echo "==> VOXL services installed and enabled."
 }
 
 # ============================== BUILD IMAGES =================================
@@ -198,6 +235,8 @@ cmd_clean_build() {
 # ============================= DEVELOPMENT ===================================
 
 cmd_dev() {
+    echo "==> Granting container access to X server..."
+    xhost +local:docker
     echo "==> Starting native x86_64 dev container..."
     docker compose -f "${DOCKER_DIR}/docker-compose.workstation.yml" run --rm dev
 }
@@ -362,6 +401,7 @@ cmd_voxl_stop() {
 # =============================================================================
 case "${1:-}" in
     setup-qemu)       cmd_setup_qemu ;;
+    setup-voxl-services) cmd_setup_voxl_services ;;
     build-deps)       cmd_build_deps ;;
     build-dev)        cmd_build_dev ;;
     build-cross)      cmd_build_cross ;;

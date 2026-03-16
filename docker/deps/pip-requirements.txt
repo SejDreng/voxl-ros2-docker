@@ -13,8 +13,3 @@ torch
 
 # Backend 2: TFLite runtime
 tflite-runtime
-
-# ONNX conversion and runtime
-onnx
-onnxruntime
-onnxscript

@@ -1,14 +1,17 @@
 <CycloneDDS>
   <Domain>
     <General>
-      <Interfaces>
-        <NetworkInterface name="wlan0"/>
-      </Interfaces>
-      <AllowMulticast>true</AllowMulticast>
+      <AllowMulticast>false</AllowMulticast>
     </General>
 
+    <Discovery>
+      <Peers>
+        <Peer Address="192.168.50.33"/>  <!-- VOXL2 drone -->
+      </Peers>
+    </Discovery>
+
     <SharedMemory>
-      <Enable>true</Enable>
+      <Enable>false</Enable>
     </SharedMemory>
   </Domain>
 </CycloneDDS>
