@@ -79,44 +79,42 @@ This step is **only required for the `tflite` backend**. For the `pytorch` backe
 
 Run on workstation (not on VOXL2 runtime):
 
-### Step 1 — Export ONNX from PyTorch checkpoint
+### Step 1 — Prepare source artifacts
 
-```python
-# convert_to_onnx.py
-import torch
-model = MyModel()
-model.load_state_dict(torch.load("models/model.pt"))
-model.eval()
-dummy_input = torch.zeros(1, <C>, <H>, <W>)  # match your model's input shape
-torch.onnx.export(
-    model, dummy_input, "models/model.onnx",
-    opset_version=17,
-    input_names=["input"], output_names=["output"],
-    dynamic_axes={"input": {0: "batch"}, "output": {0: "batch"}},
-)
-```
+- Place PyTorch checkpoint at `models/yolov8n.pt` (or adjust `MODEL_NAME` and `DUMMY_INPUT_SHAPE` in `scripts/pt_onnx_tflite_pipeline.py` depending on your model).
+- Place calibration images under `models/quantization_data/Images/`.
+
+### Step 2 — Run conversion pipeline
+
+The repository script handles:
+- PyTorch -> ONNX export
+- ONNX -> TFLite conversion via `onnx2tf`
+- INT8 conversion retries (`*_auto.json` usage)
+- optional validation phase
 
 ```bash
-python convert_to_onnx.py
+# from repo root
+python3 scripts/pt_onnx_tflite_pipeline.py
 ```
 
-### Step 2 — Convert ONNX -> TFLite via onnx2tf
+Optional validation pass:
 
 ```bash
-pip install onnx2tf  # workstation only, not installed in Docker image
-onnx2tf -i models/model.onnx -o models/model_tf -oiqt
-# Output: models/model_tf/model_float32.tflite (or similar)
-cp models/model_tf/model_float32.tflite models/model.tflite
+python3 scripts/pt_onnx_tflite_pipeline.py --validate
 ```
 
-### Step 3 — Validate numerically
+### Step 3 — Check outputs
 
-Run a quick sanity check comparing PyTorch vs TFLite outputs on the same sample
-input before deploying. A max absolute error < 1e-4 is a good baseline threshold.
+Generated artifacts are written under:
+- `models/Model.onnx`
+- `models/saved_model/Model_XX.tflite`
+
+Typical TFLite outputs include float and quantized variants (names depend on onnx2tf version).
 
 ### Step 4 — Place model in the ROS2 package
 
-Copy the final artifacts into the node's models directory depending on target backend:
+Copy the final artifacts into the node's models directory depending on target backend.
+EXAMPLE:
 
 | Backend    | File required                                              |
 |------------|------------------------------------------------------------|

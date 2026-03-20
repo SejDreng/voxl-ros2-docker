@@ -66,6 +66,14 @@ Thumbs.db
 # Misc
 # =============================================================================
 *.bag
+*.jpg
+*.png
+*.jpeg
+*.data
+*.onnx
+*.onnx.data
+/models/saved_model/*
+*.npy
 
 # =============================================================================
 # Model artifacts (models/ and ros2_ws/src/runtime_models/)

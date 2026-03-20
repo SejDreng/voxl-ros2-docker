@@ -40,9 +40,8 @@ def preprocess_image(image_path: Path, image_size: int) -> np.ndarray:
     rgb = np.array(image, dtype=np.uint8)
     letterboxed = letterbox_rgb(rgb, target_size=image_size)
 
-    chw = np.transpose(letterboxed, (2, 0, 1))
-    chw = chw.astype(np.float32) / 255.0
-    return chw
+    nhwc = letterboxed.astype(np.float32) / 255.0
+    return nhwc
 
 
 def main() -> None:
@@ -58,8 +57,8 @@ def main() -> None:
     parser.add_argument(
         "--max-images",
         type=int,
-        default=200,
-        help="Maximum number of images to include.",
+        default=None,
+        help="Maximum number of images to include. If omitted, all discovered images are used.",
     )
     parser.add_argument(
         "--image-size",
@@ -84,7 +83,7 @@ def main() -> None:
     if not image_paths:
         raise FileNotFoundError(f"No images found in: {input_dir}")
 
-    selected_paths = image_paths[: args.max_images]
+    selected_paths = image_paths if args.max_images is None else image_paths[: args.max_images]
 
     batch = []
     for image_path in selected_paths:
@@ -102,7 +101,7 @@ def main() -> None:
     np.save(output_path, calibration_array)
 
     print(f"Saved: {output_path}")
-    print(f"Shape: {calibration_array.shape} (N, C, H, W)")
+    print(f"Shape: {calibration_array.shape} (N, H, W, C)")
     print(f"Dtype: {calibration_array.dtype}")
     print(f"Range: [{calibration_array.min():.4f}, {calibration_array.max():.4f}]")
     print(f"Images used: {len(batch)}")
