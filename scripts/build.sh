@@ -258,7 +258,8 @@ cmd_build_ws() {
 }
 
 cmd_build_ws_cross() {
-    local colcon_args="--symlink-install"
+    # local colcon_args="--symlink-install"
+    local colcon_args=""
     if [ $# -gt 0 ]; then
         colcon_args+=" --packages-select $*"
     fi
@@ -349,11 +350,13 @@ cmd_deploy() {
 cmd_deploy_image() {
     local image_file="${PROJECT_DIR}/voxl-runtime-arm64.tar.gz"
 
-    if [ ! -f "${image_file}" ]; then
-        echo "==> Runtime image not exported yet. Building and exporting..."
+    if ! docker image inspect "${IMAGE_NAME}:runtime-arm64" >/dev/null 2>&1; then
+        echo "==> Runtime image not built yet. Building now..."
         cmd_build_runtime
-        cmd_export_runtime
     fi
+
+    echo "==> Exporting latest runtime image tarball..."
+    cmd_export_runtime
 
     echo "==> Transferring runtime image to drone..."
     rsync -avz --progress "${image_file}" "${VOXL_USER}@${VOXL_HOST}:/tmp/"

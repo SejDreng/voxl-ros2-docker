@@ -199,7 +199,3 @@ Before flight/field usage:
 - Stop container: `make voxl-stop`
 
 ---
-
-## 10) Practical Recommendation
-
-Start with TFLite first for deployment confidence and lower runtime overhead, then enable native PyTorch as a second backend in the same node. This keeps one ROS interface while allowing backend switching by parameter.

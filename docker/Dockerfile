@@ -63,6 +63,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   build-essential \
   git \
   iproute2 \
+  python3-colcon-common-extensions \
   python3-pip \
   python3-rosdep \
   python3-vcstool \

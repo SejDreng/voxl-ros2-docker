@@ -22,8 +22,10 @@ services:
       - ./entrypoint.sh:/tmp/entrypoint.sh
     environment:
       - ROS_DOMAIN_ID=0
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - CYCLONEDDS_URI=file:///tmp/cyclonedds.xml
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_DISCOVERY_SERVER=127.0.0.1:11811
+      - ROS_SUPER_CLIENT=TRUE
+      - ROS_LOCALHOST_ONLY=0
     restart: unless-stopped
     stdin_open: true
     tty: true

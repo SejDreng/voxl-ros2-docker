@@ -7,9 +7,14 @@ setuptools
 wheel
 catkin_pkg
 numpy
+Pillow
 
 # Backend 1: native PyTorch runtime
 torch
+ultralytics
 
 # Backend 2: TFLite runtime
 tflite-runtime
+
+# Backend 3: TensorFlow runtime
+tensorflow

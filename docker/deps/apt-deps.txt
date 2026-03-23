@@ -7,5 +7,9 @@
 #   - Lines starting with # and blank lines are ignored
 # ==========================================================
 
-# No additional apt packages are required for the baseline
-# ROS2 Python + PyTorch/TFLite workflow.
+# OpenCV runtime libs (required indirectly by ultralytics during torch.load unpickling)
+libgl1
+libglib2.0-0
+libsm6
+libxext6
+libxrender1

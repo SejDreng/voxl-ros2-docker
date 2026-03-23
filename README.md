@@ -158,7 +158,7 @@ Re-enable it later when needed:
 ```bash
 sudo systemctl enable --now voxl-mpa-to-ros2.service
 ```
-(fastdds-discoverycan also be disabled, but it allows communication in general. It is recomended to keep running)
+(fastdds-discovery can also be disabled, but it allows communication in general. It is recomended to keep running)
 ```bash
 sudo systemctl disable --now fastdds-discovery.service
 ```
@@ -221,6 +221,42 @@ Recommended first topic:
 Notes:
 - `*_encoded` topics are usually lighter over network.
 - High-resolution streams can exceed available Wi-Fi throughput.
+
+
+### Recommendation: Organize ROS2 Shells with tmux (Many Nodes)
+
+If your project runs a large number of ROS2 nodes, keep container shells grouped in a single `tmux` session so logs and commands stay predictable.
+
+Suggested cluster layout:
+- `ws-dev`: workstation development container shell (`make dev`)
+- `ws-cross`: arm64 cross container shell (`make cross`)
+- `voxl`: remote VOXL runtime shell (`make voxl-shell`)
+- `watch`: monitoring shell (`ros2 topic list`, `ros2 node list`, `ros2 topic hz`)
+
+Suggested naming convention:
+- Session: `ros2-cluster`
+- Windows: `dev`, `cross`, `voxl`, `watch`
+- Panes per window: `launch`, `build`, `logs`
+
+Quick start example:
+
+```bash
+tmux new-session -d -s ros2-cluster -n dev
+tmux send-keys -t ros2-cluster:dev 'make dev' C-m
+
+tmux new-window -t ros2-cluster -n cross
+tmux send-keys -t ros2-cluster:cross 'make cross' C-m
+
+tmux new-window -t ros2-cluster -n voxl
+tmux send-keys -t ros2-cluster:voxl 'make voxl-shell' C-m
+
+tmux new-window -t ros2-cluster -n watch
+tmux send-keys -t ros2-cluster:watch 'make dev' C-m
+
+tmux attach -t ros2-cluster
+```
+
+Inside `watch`, run short checks in dedicated panes instead of mixing output with launch logs.
 
 
 
