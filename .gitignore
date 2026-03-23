@@ -69,19 +69,19 @@ Thumbs.db
 *.jpg
 *.png
 *.jpeg
-*.data
-*.onnx
-*.onnx.data
-/models/saved_model/*
+# *.data
+# *.onnx
+# *.onnx.data
+# /models/saved_model/*
 *.npy
 
 # =============================================================================
 # Model artifacts (models/ and ros2_ws/src/runtime_models/)
 # =============================================================================
-*.pt
-*.pth
-*.onnx
-*.tflite
+# *.pt
+# *.pth
+# *.onnx
+# *.tflite
 *.pb
 *.h5
 *.pkl

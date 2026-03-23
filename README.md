@@ -192,7 +192,7 @@ Optional hardened rules (drone-only source) can be used instead of broad port op
 `docker/docker-compose.workstation.yml` already contains defaults for discovery-server mode:
 
 - `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
-- `ROS_DISCOVERY_SERVER=192.168.50.33:11811`
+- `ROS_DISCOVERY_SERVER=<ENTER YOUR DRONES IP HERE>:11811`
 - `ROS_SUPER_CLIENT=TRUE`
 
 Start the dev shell as usual:
