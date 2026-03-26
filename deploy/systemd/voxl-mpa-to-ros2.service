@@ -1,0 +1,15 @@
+[Unit]
+Description=VOXL MPA to ROS2 Bridge
+After=network-online.target fastdds-discovery.service
+Wants=network-online.target
+Requires=fastdds-discovery.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/voxl-ros2-network
+ExecStart=/bin/bash -lc 'source /opt/ros/foxy/setup.bash; if [ -f /opt/ros/foxy/mpa_to_ros2/install/setup.bash ]; then source /opt/ros/foxy/mpa_to_ros2/install/setup.bash; fi; if [ -f /home/ubuntu/ros2_ws/install/setup.bash ]; then source /home/ubuntu/ros2_ws/install/setup.bash; fi; if [ -n "${VOXL_MPA_NODE_BIN:-}" ] && [ -x "${VOXL_MPA_NODE_BIN}" ]; then exec "${VOXL_MPA_NODE_BIN}"; else exec ros2 run voxl_mpa_to_ros2 voxl_mpa_to_ros2_node; fi'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

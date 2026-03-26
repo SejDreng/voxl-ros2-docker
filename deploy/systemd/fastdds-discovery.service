@@ -1,0 +1,14 @@
+[Unit]
+Description=Fast DDS Discovery Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/voxl-ros2-network
+ExecStart=/bin/bash -lc 'if command -v fastdds >/dev/null 2>&1; then exec fastdds discovery --server-id 0 --ip-address 0.0.0.0 --port 11811; elif command -v fast-discovery-server >/dev/null 2>&1; then exec fast-discovery-server -i 0 -l 0.0.0.0 -p 11811; else echo "fastdds / fast-discovery-server not found" >&2; exit 127; fi'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

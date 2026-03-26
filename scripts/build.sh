@@ -288,10 +288,8 @@ cmd_deploy() {
 
     sudo chown -R "$(id -u):$(id -g)" "${deploy_dir}" 2>/dev/null || true
 
-    # clean deploy dir prior to extract
-    cd "${deploy_dir}" && rm -fr ./* # OBS TODO: SKIP DELETE OF DATA FOLDER FOR OUTPUTS
-
     echo "==> Preparing deploy directory..."
+    rm -rf "${ros2_install}"
     mkdir -p "${ros2_install}"
 
 
