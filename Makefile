@@ -50,6 +50,10 @@ clean-build: # Erase build images, containers, builders, and artifacts to allow 
 dev: ## Open a shell in the native x86 dev container
 	@$(SCRIPT) dev
 
+.PHONY: dev-gpu
+dev-gpu: ## Open a shell in native x86 dev container with GPU overrides
+	@$(SCRIPT) dev-gpu
+
 .PHONY: cross
 cross: ## Open a shell in the arm64 QEMU dev container
 	@$(SCRIPT) cross

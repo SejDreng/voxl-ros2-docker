@@ -124,6 +124,9 @@ RUN ldconfig
 # =============================================================================
 FROM voxl-deps AS voxl-dev
 
+ARG TARGETARCH
+ARG ENABLE_CUDA_TORCH=0
+
 # Developer tools (not needed to compile project)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   gdb \
@@ -137,6 +140,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ros-humble-rviz2 \
   ros-humble-rqt-image-view \
   && rm -rf /var/lib/apt/lists/*
+
+COPY deps/pip-requirements-workstation-gpu.txt /tmp/pip-requirements-workstation-gpu.txt
+RUN if [ "${TARGETARCH}" = "amd64" ] && [ "${ENABLE_CUDA_TORCH}" = "1" ]; then \
+      echo "==> Installing optional CUDA-enabled PyTorch wheels for workstation dev image..."; \
+      pip3 install --no-cache-dir -r /tmp/pip-requirements-workstation-gpu.txt; \
+    else \
+      echo "==> Skipping optional CUDA PyTorch install (TARGETARCH=${TARGETARCH}, ENABLE_CUDA_TORCH=${ENABLE_CUDA_TORCH})."; \
+    fi
 
 # RMW
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp

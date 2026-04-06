@@ -1,0 +1,14 @@
+# =============================================================================
+# docker-compose.workstation.gpu.yml
+# Optional GPU overrides for the workstation dev container.
+# Use together with docker-compose.workstation.yml.
+# =============================================================================
+services:
+  dev:
+    build:
+      args:
+        ENABLE_CUDA_TORCH: "1"
+    gpus: all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility

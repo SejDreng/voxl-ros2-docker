@@ -140,6 +140,43 @@ journalctl -u fastdds-discovery.service -f
 journalctl -u voxl-mpa-to-ros2.service -f
 ```
 
+Troubleshooting: `fastdds / fast-discovery-server not found`
+
+If logs show this message in a restart loop, the discovery binary is either not installed or not on systemd PATH.
+
+1. Check whether either binary exists:
+
+```bash
+command -v fastdds || command -v fast-discovery-server
+ls -l /opt/ros/*/bin/fastdds /opt/ros/*/bin/fast-discovery-server 2>/dev/null
+```
+
+2. Re-apply templates (newer template searches ROS paths automatically):
+
+```bash
+make setup-voxl-services
+```
+
+3. If still unresolved, set explicit binary path in `/etc/default/voxl-ros2-network`:
+
+```bash
+FASTDDS_BIN=/opt/ros/foxy/bin/fastdds
+```
+
+Then reload/restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart fastdds-discovery.service
+sudo systemctl status fastdds-discovery.service --no-pager -l
+```
+
+Important for service template edits:
+
+If you edit `ExecStart=/bin/bash -lc '...'` in systemd units, escape shell `$` as `$$` in the unit file. systemd processes `$...` before launching bash; unescaped shell variables/substitutions can be consumed early and break runtime logic.
+
+If Fast DDS is found but fails with a shared library error (for example `libfastrtps.so.2: cannot open shared object file`), ensure the service sources ROS setup before launching Fast DDS so runtime library paths (such as `LD_LIBRARY_PATH`) are populated.
+
 #### Service toggle (save drone resources)
 
 By default, `make setup-voxl-services` enables **both** services at boot:
@@ -171,6 +208,8 @@ make setup-voxl-services
 # Optional manual restart/check
 ssh root@192.168.50.33 "sudo systemctl restart voxl-mpa-to-ros2.service && sudo systemctl status voxl-mpa-to-ros2.service --no-pager -l"
 ```
+
+If `voxl-mpa-to-ros2.service` fails with `failed to configure logging: Failed to get logging directory`, the systemd runtime is missing a usable `HOME`/log path for ROS logging. The template now exports `HOME` and `ROS_LOG_DIR` and creates the log directory before launch. Re-apply templates and restart the service.
 
 The service template also supports launching the node binary directly via `VOXL_MPA_NODE_BIN` in `/etc/default/voxl-ros2-network`, which is more robust under systemd than `ros2 run` package lookup.
 
@@ -206,6 +245,32 @@ Verify from container:
 ```bash
 ros2 topic list --no-daemon
 ```
+
+#### Optional: Workstation GPU acceleration for PyTorch nodes
+
+This repo keeps CPU-only startup as default and uses an opt-in GPU override for workstation development.
+
+- `docker/deps/pip-requirements.txt` remains shared for dev/runtime compatibility.
+- `docker/deps/pip-requirements-workstation-gpu.txt` is optional and used only for workstation dev builds.
+- `docker/docker-compose.workstation.gpu.yml` is an override that enables `gpus: all` and CUDA environment variables.
+- Drone/runtime images are unchanged by this CUDA-specific layer.
+
+Start modes:
+
+```bash
+make dev
+make dev-gpu
+```
+
+`make dev-gpu` performs a host preflight check and will fail early with diagnostics if NVIDIA runtime/CDI integration is missing.
+
+Equivalent one-off command:
+
+```bash
+USE_GPU=1 make dev
+```
+
+If your Docker host is missing GPU CDI/runtime integration, `make dev` will still work (CPU mode) and avoid errors like `failed to discover GPU vendor from CDI`.
 
 #### 4) View camera topics
 

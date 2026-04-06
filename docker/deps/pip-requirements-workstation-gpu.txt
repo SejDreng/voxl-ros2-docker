@@ -1,0 +1,6 @@
+# Optional workstation-only CUDA PyTorch wheels (amd64).
+# This file is intentionally NOT used in runtime/drone images.
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch
+torchvision
+torchaudio

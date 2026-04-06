@@ -70,7 +70,7 @@ Help: $(basename "$0") <command>
 
 ---- ONE-TIME SETUP ----
   setup-qemu           Install QEMU user-static for arm64 emulation (run once)
-    setup-voxl-services  Install and enable FastDDS + voxl_mpa_to_ros2 systemd services on VOXL
+  setup-voxl-services  Install and enable FastDDS + voxl_mpa_to_ros2 systemd services on VOXL
 
 ---- BUILD IMAGES ----
   build-deps           Build only the dependency base stage (useful to verify deps)
@@ -81,6 +81,7 @@ Help: $(basename "$0") <command>
 
 ---- DEVELOPMENT (workstation) ----
   dev                  Open a shell in the native x86 dev container
+  dev-gpu              Open a shell in native x86 dev container with GPU overrides
   cross                Open a shell in the arm64 QEMU dev container
   build-ws             Run colcon build in the native dev container
   build-ws-cross       Run colcon build in the arm64 container (produces arm64 binaries)
@@ -234,11 +235,58 @@ cmd_clean_build() {
 
 # ============================= DEVELOPMENT ===================================
 
+check_gpu_runtime() {
+    local has_nvidia_smi=0
+    local has_nvidia_runtime=0
+    local has_nvidia_cdi=0
+
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        has_nvidia_smi=1
+    fi
+
+    if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; then
+        has_nvidia_runtime=1
+    fi
+
+    if ls /etc/cdi/nvidia*.yaml /var/run/cdi/nvidia*.yaml >/dev/null 2>&1; then
+        has_nvidia_cdi=1
+    fi
+
+    if [ "${has_nvidia_smi}" -eq 1 ] && { [ "${has_nvidia_runtime}" -eq 1 ] || [ "${has_nvidia_cdi}" -eq 1 ]; }; then
+        return 0
+    fi
+
+    echo "==> ERROR: GPU mode requested, but Docker GPU integration is not available on this host." >&2
+    echo "    Diagnostic summary:" >&2
+    echo "      - nvidia-smi on host: ${has_nvidia_smi}" >&2
+    echo "      - docker nvidia runtime: ${has_nvidia_runtime}" >&2
+    echo "      - nvidia CDI spec present: ${has_nvidia_cdi}" >&2
+    echo "" >&2
+    echo "    Suggested actions:" >&2
+    echo "      1) Run CPU mode: make dev" >&2
+    echo "      2) Install and configure NVIDIA Container Toolkit on the host" >&2
+    echo "      3) Ensure docker sees either nvidia runtime or CDI spec files" >&2
+    return 1
+}
+
 cmd_dev() {
     echo "==> Granting container access to X server..."
     xhost +local:docker
-    echo "==> Starting native x86_64 dev container..."
-    docker compose -f "${DOCKER_DIR}/docker-compose.workstation.yml" run --rm dev
+    if [ "${USE_GPU:-0}" = "1" ]; then
+        check_gpu_runtime
+        echo "==> Starting native x86_64 dev container with GPU overrides..."
+        docker compose \
+            -f "${DOCKER_DIR}/docker-compose.workstation.yml" \
+            -f "${DOCKER_DIR}/docker-compose.workstation.gpu.yml" \
+            run --rm dev
+    else
+        echo "==> Starting native x86_64 dev container..."
+        docker compose -f "${DOCKER_DIR}/docker-compose.workstation.yml" run --rm dev
+    fi
+}
+
+cmd_dev_gpu() {
+    USE_GPU=1 cmd_dev
 }
 
 cmd_cross() {
@@ -409,6 +457,7 @@ case "${1:-}" in
     build-runtime)    cmd_build_runtime ;;
     clean-build)      cmd_clean_build ;; 
     dev)              cmd_dev ;;
+    dev-gpu)          cmd_dev_gpu ;;
     cross)            cmd_cross ;;
     build-ws)         shift; cmd_build_ws "$@" ;;
     build-ws-cross)   shift; cmd_build_ws_cross "$@" ;;
