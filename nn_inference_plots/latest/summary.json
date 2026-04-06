@@ -1,0 +1,15 @@
+{
+  "csv_file": "/home/adrian/Git_Repositories/voxl-ros2-docker/ros2_ws/log/nn_inference_logs/metrics_20260406_170753.csv",
+  "frames": 317,
+  "mean_fps": 29.772,
+  "latency_ms": {
+    "mean": 34.026,
+    "p50": 31.949,
+    "p95": 41.307,
+    "p99": 44.435
+  },
+  "preprocess_ms_mean": 7.084,
+  "infer_ms_mean": 26.269,
+  "postprocess_ms_mean": 0.672,
+  "detections_mean": 3.18
+}

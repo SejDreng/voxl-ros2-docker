@@ -209,8 +209,6 @@ make setup-voxl-services
 ssh root@192.168.50.33 "sudo systemctl restart voxl-mpa-to-ros2.service && sudo systemctl status voxl-mpa-to-ros2.service --no-pager -l"
 ```
 
-If `voxl-mpa-to-ros2.service` fails with `failed to configure logging: Failed to get logging directory`, the systemd runtime is missing a usable `HOME`/log path for ROS logging. The template now exports `HOME` and `ROS_LOG_DIR` and creates the log directory before launch. Re-apply templates and restart the service.
-
 The service template also supports launching the node binary directly via `VOXL_MPA_NODE_BIN` in `/etc/default/voxl-ros2-network`, which is more robust under systemd than `ros2 run` package lookup.
 
 #### 2) Workstation: required firewall rules (one-time)
@@ -271,6 +269,32 @@ USE_GPU=1 make dev
 ```
 
 If your Docker host is missing GPU CDI/runtime integration, `make dev` will still work (CPU mode) and avoid errors like `failed to discover GPU vendor from CDI`.
+
+Metrics export and plotting
+
+The node writes machine-friendly metrics here:
+
+```bash
+/ros2_ws/log/nn_inference_logs/metrics_YYYYMMDD_HHMMSS.csv
+```
+
+That path is bind-mounted into the repo at `ros2_ws/log/`, so you can open the CSV files directly from the workspace on the host.
+
+Generate plots and a summary from the newest CSV:
+
+```bash
+python3 scripts/plot_nn_metrics.py --logs-dir /ros2_ws/log/nn_inference_logs
+```
+
+Or plot a specific CSV:
+
+```bash
+python3 scripts/plot_nn_metrics.py --csv /ros2_ws/log/nn_inference_logs/metrics_20260406_163950.csv
+```
+
+By default the script writes PNG plots and `summary.json` into a `plots/` subdirectory next to the CSV.
+
+If the mounted log directory is not writable from the host, the script automatically falls back to a writable repo-local directory such as `nn_inference_plots/<csv_name>/`.
 
 #### 4) View camera topics
 

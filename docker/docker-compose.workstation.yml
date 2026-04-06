@@ -19,7 +19,7 @@ services:
       - ../ros2_ws/src:/ros2_ws/src
       - dev-build:/ros2_ws/build
       - dev-install:/ros2_ws/install
-      - dev-log:/ros2_ws/log
+      - ../ros2_ws/log:/ros2_ws/log
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ${XAUTHORITY:-$HOME/.Xauthority}:/tmp/.docker.xauth:ro
       - /dev:/dev                                     # Serial ports, cameras, etc...
@@ -50,7 +50,7 @@ services:
       - ../ros2_ws/src:/ros2_ws/src
       - cross-build:/ros2_ws/build
       - cross-install:/ros2_ws/install
-      - cross-log:/ros2_ws/log
+      - ../ros2_ws/log:/ros2_ws/log
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
     stdin_open: true
@@ -62,12 +62,8 @@ volumes:
     name: cross-install
   cross-build:
     name: cross-build
-  cross-log:
-    name: cross-log
   dev-build:
     name: dev-build
   dev-install:
     name: dev-install
-  dev-log:
-    name: dev-log
 
