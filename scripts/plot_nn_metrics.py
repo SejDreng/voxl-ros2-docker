@@ -177,6 +177,9 @@ def plot_hist(values, title, xlabel, outpath: Path) -> None:
 def write_summary(rows: list[MetricsRow], csv_path: Path, outdir: Path) -> Path:
     latency_values = [row.latency_ms for row in rows]
     fps_values = [row.fps for row in rows]
+    avg_conf_values = [row.avg_confidence for row in rows]
+    min_conf_values = [row.min_confidence for row in rows]
+    max_conf_values = [row.max_confidence for row in rows]
     summary = {
         "csv_file": str(csv_path),
         "frames": len(rows),
@@ -191,6 +194,13 @@ def write_summary(rows: list[MetricsRow], csv_path: Path, outdir: Path) -> Path:
         "infer_ms_mean": round(mean(row.infer_ms for row in rows), 3),
         "postprocess_ms_mean": round(mean(row.postprocess_ms for row in rows), 3),
         "detections_mean": round(mean(row.detections for row in rows), 3),
+        "confidence": {
+            "avg_confidence_mean": round(mean(avg_conf_values), 6),
+            "avg_confidence_p50": round(percentile(avg_conf_values, 50), 6),
+            "avg_confidence_p95": round(percentile(avg_conf_values, 95), 6),
+            "min_confidence_mean": round(mean(min_conf_values), 6),
+            "max_confidence_mean": round(mean(max_conf_values), 6),
+        },
     }
     summary_path = outdir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
@@ -208,6 +218,9 @@ def main() -> int:
     frames = [row.frame for row in rows]
     latency = [row.latency_ms for row in rows]
     fps = [row.fps for row in rows]
+    avg_conf_values = [row.avg_confidence for row in rows]
+    min_conf_values = [row.min_confidence for row in rows]
+    max_conf_values = [row.max_confidence for row in rows]
     preprocess = [row.preprocess_ms for row in rows]
     inference = [row.infer_ms for row in rows]
     postprocess = [row.postprocess_ms for row in rows]
@@ -249,6 +262,14 @@ def main() -> int:
     print(f"Summary: {summary_path}")
     print(f"Frames: {len(rows)}")
     print(f"Mean FPS: {mean(fps):.3f}")
+    print(
+        "Confidence: "
+        f"avg_mean={mean(avg_conf_values):.6f}, "
+        f"avg_p50={percentile(avg_conf_values, 50):.6f}, "
+        f"avg_p95={percentile(avg_conf_values, 95):.6f}, "
+        f"min_mean={mean(min_conf_values):.6f}, "
+        f"max_mean={mean(max_conf_values):.6f}"
+    )
     print(
         "Latency ms: "
         f"mean={mean(latency):.3f}, "

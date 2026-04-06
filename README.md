@@ -270,9 +270,9 @@ USE_GPU=1 make dev
 
 If your Docker host is missing GPU CDI/runtime integration, `make dev` will still work (CPU mode) and avoid errors like `failed to discover GPU vendor from CDI`.
 
-Metrics export and plotting
+#### 4) Metrics export and plotting
 
-The node writes machine-friendly metrics here:
+The node should write metrics here:
 
 ```bash
 /ros2_ws/log/nn_inference_logs/metrics_YYYYMMDD_HHMMSS.csv
@@ -296,7 +296,33 @@ By default the script writes PNG plots and `summary.json` into a `plots/` subdir
 
 If the mounted log directory is not writable from the host, the script automatically falls back to a writable repo-local directory such as `nn_inference_plots/<csv_name>/`.
 
-#### 4) View camera topics
+Pull logs from VOXL runtime back into the repo:
+
+```bash
+make pull-voxl-logs
+```
+
+Pulled files are stored under:
+
+```bash
+ros2_ws/log/nn_inference_logs/voxl/<VOXL_HOST>/
+```
+
+If that directory is root-owned (for example after container writes), `make pull-voxl-logs` automatically falls back to:
+
+```bash
+nn_inference_logs/voxl/<VOXL_HOST>/
+```
+
+Optional one-time fix to keep using the preferred path:
+
+```bash
+sudo chown -R "$USER":"$USER" ros2_ws/log
+```
+
+So remember to specify that path if wanting to plot drone-specific metrics.
+
+#### 5) View camera topics
 
 Inside `voxl-dev` container:
 

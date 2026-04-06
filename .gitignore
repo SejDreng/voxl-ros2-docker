@@ -76,6 +76,7 @@ Thumbs.db
 # *.onnx.data
 # /models/saved_model/*
 *.npy
+*.csv
 
 # =============================================================================
 # Model artifacts (models/ and ros2_ws/src/runtime_models/)

@@ -95,6 +95,7 @@ Help: $(basename "$0") <command>
   voxl-start          Start the voxl-drone container
   voxl-shell          Attach to the running voxl-drone container
   voxl-logs           Show voxl-drone container logs
+  pull-voxl-logs      Pull nn_inference logs from VOXL into local repo
   voxl-stop           Stop the voxl-drone container
 EOF
 }
@@ -442,6 +443,31 @@ cmd_voxl_logs() {
         "cd ${VOXL_DIR} && ${compose_bin} -f docker-compose.yml logs -f --tail=100"
 }
 
+cmd_pull_voxl_logs() {
+    local remote_logs_dir="${VOXL_DIR}/ros2_ws/log/nn_inference_logs"
+    local preferred_local_logs_dir="${PROJECT_DIR}/ros2_ws/log/nn_inference_logs/voxl/${VOXL_HOST}"
+    local fallback_local_logs_dir="${PROJECT_DIR}/nn_inference_logs/voxl/${VOXL_HOST}"
+    local local_logs_dir="${preferred_local_logs_dir}"
+
+    if ! mkdir -p "${preferred_local_logs_dir}" 2>/dev/null; then
+        echo "==> Warning: Cannot write to ${preferred_local_logs_dir}; using fallback path." >&2
+        local_logs_dir="${fallback_local_logs_dir}"
+        mkdir -p "${local_logs_dir}"
+    fi
+
+    echo "==> Pulling VOXL logs from ${VOXL_USER}@${VOXL_HOST}:${remote_logs_dir}/"
+    if ! ssh "${VOXL_USER}@${VOXL_HOST}" "test -d '${remote_logs_dir}'"; then
+        echo "==> No remote log directory found at ${remote_logs_dir}" >&2
+        return 1
+    fi
+
+    rsync -avz --progress \
+        "${VOXL_USER}@${VOXL_HOST}:${remote_logs_dir}/" \
+        "${local_logs_dir}/"
+
+    echo "==> Pulled logs into ${local_logs_dir}"
+}
+
 cmd_voxl_stop() {
     echo "==> Stopping voxl-drone container..."
     run_remote_compose "down"
@@ -467,6 +493,7 @@ case "${1:-}" in
     voxl-start)       cmd_voxl_start ;;
     voxl-shell)       cmd_voxl_shell ;;
     voxl-logs)        cmd_voxl_logs ;;
+    pull-voxl-logs)   cmd_pull_voxl_logs ;;
     voxl-stop)        cmd_voxl_stop ;;
     help)             help ;;
     *)                help ;;

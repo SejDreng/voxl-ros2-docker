@@ -94,6 +94,10 @@ voxl-shell: ## Attach to the running voxl-drone container
 voxl-logs: ## Show voxl-drone container logs
 	@$(SCRIPT) voxl-logs
 
+.PHONY: pull-voxl-logs
+pull-voxl-logs: ## Pull nn_inference logs from VOXL into local repo
+	@$(SCRIPT) pull-voxl-logs
+
 .PHONY: voxl-stop
 voxl-stop: ## Stop the voxl-drone container
 	@$(SCRIPT) voxl-stop
