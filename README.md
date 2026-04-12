@@ -289,7 +289,7 @@ python3 scripts/plot_nn_metrics.py --logs-dir /ros2_ws/log/nn_inference_logs
 Or plot a specific CSV:
 
 ```bash
-python3 scripts/plot_nn_metrics.py --csv /ros2_ws/log/nn_inference_logs/metrics_20260406_163950.csv
+python3 scripts/plot_nn_metrics.py --csv /ros2_ws/log/nn_inference_logs/metrics_XXXXXXXX_XXXXXX.csv
 ```
 
 By default the script writes PNG plots and `summary.json` into a `plots/` subdirectory next to the CSV.
@@ -338,7 +338,7 @@ Notes:
 - High-resolution streams can exceed available Wi-Fi throughput.
 
 
-### Recommendation: Organize ROS2 Shells with tmux (Many Nodes)
+<!-- ### Recommendation: Organize ROS2 Shells with tmux (Many Nodes)
 
 If your project runs a large number of ROS2 nodes, keep container shells grouped in a single `tmux` session so logs and commands stay predictable.
 
@@ -371,7 +371,7 @@ tmux send-keys -t ros2-cluster:watch 'make dev' C-m
 tmux attach -t ros2-cluster
 ```
 
-Inside `watch`, run short checks in dedicated panes instead of mixing output with launch logs.
+Inside `watch`, run short checks in dedicated panes instead of mixing output with launch logs. -->
 
 
 

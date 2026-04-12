@@ -1,0 +1,22 @@
+{
+  "csv_file": "/home/adrian/Git_Repositories/voxl-ros2-docker/ros2_ws/log/nn_inference_logs/metrics_20260408_105447.csv",
+  "frames": 486,
+  "mean_fps": 28.192,
+  "latency_ms": {
+    "mean": 36.109,
+    "p50": 35.932,
+    "p95": 43.601,
+    "p99": 47.272
+  },
+  "preprocess_ms_mean": 6.87,
+  "infer_ms_mean": 28.515,
+  "postprocess_ms_mean": 0.724,
+  "detections_mean": 3.012,
+  "confidence": {
+    "avg_confidence_mean": 0.683508,
+    "avg_confidence_p50": 0.684912,
+    "avg_confidence_p95": 0.701643,
+    "min_confidence_mean": 0.372737,
+    "max_confidence_mean": 0.844494
+  }
+}
