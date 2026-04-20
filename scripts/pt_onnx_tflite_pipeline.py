@@ -30,6 +30,7 @@ else:
 
 # REPLACE WITH YOUR OWN MODEL NAME
 MODEL_NAME = 'yolov8n.pt'
+MODEL_PREFIX = Path(MODEL_NAME).stem
 DUMMY_INPUT_SHAPE = (1, 3, 640, 640)  # Adjust as needed for your model
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -62,15 +63,23 @@ class NNmodel(nn.Module):
 # ==================================Export Pipeline============================================ #
     
 def get_calibration_npy() -> str | None:
+    expected_h = int(DUMMY_INPUT_SHAPE[2])
+    expected_w = int(DUMMY_INPUT_SHAPE[3])
+
     if CALIBRATION_NPY_PATH.is_file():
         try:
             calibration_array = np.load(CALIBRATION_NPY_PATH)
-            if calibration_array.ndim == 4 and calibration_array.shape[-1] == 3:
+            if (
+                calibration_array.ndim == 4
+                and calibration_array.shape[-1] == 3
+                and calibration_array.shape[1] == expected_h
+                and calibration_array.shape[2] == expected_w
+            ):
                 return str(CALIBRATION_NPY_PATH)
 
             print(
                 f"Existing calibration data has unexpected shape {calibration_array.shape}. "
-                "Regenerating as NHWC for onnx2tf."
+                f"Regenerating as NHWC {expected_h}x{expected_w} for onnx2tf."
             )
             CALIBRATION_NPY_PATH.unlink(missing_ok=True)
         except Exception as exc:
@@ -85,6 +94,7 @@ def get_calibration_npy() -> str | None:
             [sys.executable, calibration_script,
              '--input-dir', str(CALIBRATION_DATA_PATH),
              '--output', str(CALIBRATION_NPY_PATH),
+             '--image-size', str(expected_h),
              '--recursive'],
             check=True,
         )
@@ -102,12 +112,9 @@ def build_onnx2tf_cmd(
     include_quantization: bool,
     include_validation: bool,
 ) -> list[str]:
-    onnx2tf_exe = shutil.which('onnx2tf')
-    if not onnx2tf_exe:
-        candidate = Path(sys.executable).resolve().parent / 'onnx2tf'
-        onnx2tf_exe = str(candidate) if candidate.exists() else 'onnx2tf'
-
-    cmd = [onnx2tf_exe, '-i', onnx_path, '-o', output_dir, '-b', '1']
+    # Always run onnx2tf via the current Python interpreter to avoid
+    # broken console-script shebangs in relocated virtual environments.
+    cmd = [sys.executable, '-m', 'onnx2tf', '-i', onnx_path, '-o', output_dir, '-b', '1']
 
     if include_validation:
         cmd += ['-cotof', '-dms']
@@ -142,7 +149,29 @@ def _auto_json_candidates(onnx_path: str, output_dir: str) -> list[Path]:
     ]
 
 
+def ensure_onnx2tf_sample_data_file() -> None:
+    """Ensure onnx2tf can load local sample data without network/download issues."""
+    sample_name = 'calibration_image_sample_data_20x128x128x3_float32.npy'
+    sample_path = Path.cwd() / sample_name
+
+    if sample_path.is_file():
+        try:
+            arr = np.load(sample_path)
+            if arr.shape == (20, 128, 128, 3) and arr.dtype == np.float32:
+                return
+            print(f"Replacing invalid onnx2tf sample data file: {sample_path} (shape={arr.shape}, dtype={arr.dtype})")
+        except Exception as exc:
+            print(f"Replacing unreadable onnx2tf sample data file: {sample_path} ({exc})")
+
+    # Match onnx2tf expectations: float32 NHWC normalized sample data.
+    data = np.random.random((20, 128, 128, 3)).astype(np.float32)
+    np.save(sample_path, data)
+    print(f"Created local onnx2tf sample data file: {sample_path}")
+
+
 def run_quantization_phase(onnx_path: str, output_dir: str, calibration_npy: str | None) -> None:
+    ensure_onnx2tf_sample_data_file()
+
     primary_cmd = build_onnx2tf_cmd(
         onnx_path,
         output_dir,
@@ -195,6 +224,8 @@ def run_quantization_phase(onnx_path: str, output_dir: str, calibration_npy: str
 
 
 def run_validation_phase(onnx_path: str, output_dir: str) -> None:
+    ensure_onnx2tf_sample_data_file()
+
     validation_cmd = build_onnx2tf_cmd(
         onnx_path,
         output_dir,
@@ -248,7 +279,7 @@ def run_validation_phase(onnx_path: str, output_dir: str) -> None:
 
 def export_to_tflite(model, dummy_input, validate: bool = False):
     # Convert the PyTorch model to ONNX format
-    onnx_path = str(MODELS_PATH / 'yolov8n.onnx')
+    onnx_path = str(MODELS_PATH / f'{MODEL_PREFIX}.onnx')
     torch.onnx.export(model, dummy_input, onnx_path, export_params=True)
 
     # Convert the ONNX model to TFLite via onnx2tf

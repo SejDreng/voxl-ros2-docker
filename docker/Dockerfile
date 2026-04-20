@@ -200,6 +200,9 @@ COPY deps/apt-deps.txt /tmp/apt-deps.txt
 RUN apt-get update \
   && grep -vE '^\s*#|^\s*$' /tmp/apt-deps.txt \
     | xargs -r apt-get install -y --no-install-recommends \
+  && if [ ! -e /usr/lib/aarch64-linux-gnu/libgbm.so ] && [ -e /usr/lib/aarch64-linux-gnu/libgbm.so.1 ]; then \
+       ln -s /usr/lib/aarch64-linux-gnu/libgbm.so.1 /usr/lib/aarch64-linux-gnu/libgbm.so; \
+     fi \
   && rm -rf /var/lib/apt/lists/*
 
 # Runtime Python dependencies

@@ -345,6 +345,7 @@ cmd_deploy() {
     # Open QEMU ARM64 container and copy install and source files and resolve symlinks
     echo "==> Extracting ARM64 install from cross-build volume..."
     docker run --rm \
+        --network host \
         --platform linux/arm64 \
         -v cross-install:/cross_build/install_src:ro \
         -v cross-build:/ros2_ws/build:ro \

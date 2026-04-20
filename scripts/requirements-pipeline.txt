@@ -7,6 +7,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu126 # For GPU support, otherwise omit for CPU-only
 torch
 torchvision
+torchinfo
 onnx
 onnxscript
 onnx2tf

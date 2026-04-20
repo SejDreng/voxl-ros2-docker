@@ -1,22 +1,22 @@
 {
-  "csv_file": "/home/adrian/Git_Repositories/voxl-ros2-docker/nn_inference_logs/voxl/192.168.50.33/metrics_20260408_084141.csv",
-  "frames": 305,
-  "mean_fps": 0.976,
+  "csv_file": "/home/adrian/Git_Repositories/voxl-ros2-docker/nn_inference_logs/voxl/192.168.50.33/metrics_20260420_095622.csv",
+  "frames": 201,
+  "mean_fps": 0.528,
   "latency_ms": {
-    "mean": 1058.612,
-    "p50": 1114.396,
-    "p95": 1276.393,
-    "p99": 1350.378
+    "mean": 2185.08,
+    "p50": 2005.034,
+    "p95": 3515.785,
+    "p99": 3819.839
   },
-  "preprocess_ms_mean": 83.964,
-  "infer_ms_mean": 965.031,
-  "postprocess_ms_mean": 9.607,
-  "detections_mean": 3.01,
+  "preprocess_ms_mean": 148.899,
+  "infer_ms_mean": 1094.905,
+  "postprocess_ms_mean": 2183.764,
+  "detections_mean": 1.985,
   "confidence": {
-    "avg_confidence_mean": 0.685231,
-    "avg_confidence_p50": 0.687408,
-    "avg_confidence_p95": 0.701881,
-    "min_confidence_mean": 0.372109,
-    "max_confidence_mean": 0.848153
+    "avg_confidence_mean": 0.760942,
+    "avg_confidence_p50": 0.76709,
+    "avg_confidence_p95": 0.863281,
+    "min_confidence_mean": 0.684587,
+    "max_confidence_mean": 0.830683
   }
 }

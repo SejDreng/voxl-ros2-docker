@@ -13,3 +13,9 @@ libglib2.0-0
 libsm6
 libxext6
 libxrender1
+libgbm1
+libgbm-dev
+
+# NOTE: libmodal-pipe packages are provided on VOXL host images, not generic
+# Ubuntu repos used for workstation/cross Docker builds.
+# Keep these out of shared apt deps to avoid build-cross failures.

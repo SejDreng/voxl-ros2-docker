@@ -46,6 +46,7 @@ services:
     image: voxl-drone:dev-arm64
     container_name: voxl-cross-arm64
     platform: linux/arm64
+    network_mode: host
     volumes:
       - ../ros2_ws/src:/ros2_ws/src
       - cross-build:/ros2_ws/build

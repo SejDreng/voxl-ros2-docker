@@ -3,6 +3,10 @@
 This repository's Python node no longer runs the TFLite model itself.
 Instead, it expects a VOXL-side bridge to publish detections as JSON on a ROS topic.
 
+The buildable ROS2 bridge package added in this workspace lives at:
+
+- [ros2_ws/src/voxl_tflite_bridge](../ros2_ws/src/voxl_tflite_bridge)
+
 ## Topics
 
 - Input image topic: `/hires_small_color` by default
@@ -57,3 +61,19 @@ It also accepts `score` as a fallback for `class_confidence` and `detection_conf
 - The Python node scales detections from the preprocessed space to the original image space unless `NN_DETECTION_SPACE=original`.
 - Non-JSON or malformed payloads are ignored.
 - The node limits NMS and max detections locally so the bridge can stay simple.
+
+## Build and launch
+
+```bash
+colcon build --packages-select voxl_tflite_bridge
+source install/setup.bash
+ros2 launch voxl_tflite_bridge voxl_tflite_bridge.launch.py
+ros2 launch voxl_tflite_bridge voxl_modal_pipe_reader.launch.py
+```
+
+The bridge package is intentionally lightweight: it validates and forwards the JSON payload.
+The actual libmodal-pipe reader still belongs on the VOXL side, where it can convert the tflite-server pipe output into the JSON contract above.
+
+A source entrypoint for that reader lives at:
+
+- [ros2_ws/src/voxl_tflite_bridge/src/voxl_modal_pipe_reader_node.cpp](../ros2_ws/src/voxl_tflite_bridge/src/voxl_modal_pipe_reader_node.cpp)
