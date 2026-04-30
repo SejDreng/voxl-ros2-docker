@@ -286,6 +286,12 @@ Generate plots and a summary from the newest CSV:
 python3 scripts/plot_nn_metrics.py --logs-dir /ros2_ws/log/nn_inference_logs
 ```
 
+For XOR regression logs, use the positional `REGRESSION` mode to plot only the timing breakdown:
+
+```bash
+python3 scripts/plot_nn_metrics.py REGRESSION --logs-dir /ros2_ws/log/nn_XOR_logs
+```
+
 Or plot a specific CSV:
 
 ```bash
@@ -302,11 +308,19 @@ Pull logs from VOXL runtime back into the repo:
 make pull-voxl-logs
 ```
 
+To pull a different package log directory, pass `LOG_DIR` with the subdirectory name under `/ros2_ws/log/`:
+
+```bash
+make pull-voxl-logs LOG_DIR=nn_XOR_logs
+```
+
 Pulled files are stored under:
 
 ```bash
 ros2_ws/log/nn_inference_logs/voxl/<VOXL_HOST>/
 ```
+
+For a custom `LOG_DIR`, the destination path follows the same subdirectory name.
 
 If that directory is root-owned (for example after container writes), `make pull-voxl-logs` automatically falls back to:
 
@@ -336,43 +350,6 @@ Recommended first topic:
 Notes:
 - `*_encoded` topics are usually lighter over network.
 - High-resolution streams can exceed available Wi-Fi throughput.
-
-
-<!-- ### Recommendation: Organize ROS2 Shells with tmux (Many Nodes)
-
-If your project runs a large number of ROS2 nodes, keep container shells grouped in a single `tmux` session so logs and commands stay predictable.
-
-Suggested cluster layout:
-- `ws-dev`: workstation development container shell (`make dev`)
-- `ws-cross`: arm64 cross container shell (`make cross`)
-- `voxl`: remote VOXL runtime shell (`make voxl-shell`)
-- `watch`: monitoring shell (`ros2 topic list`, `ros2 node list`, `ros2 topic hz`)
-
-Suggested naming convention:
-- Session: `ros2-cluster`
-- Windows: `dev`, `cross`, `voxl`, `watch`
-- Panes per window: `launch`, `build`, `logs`
-
-Quick start example:
-
-```bash
-tmux new-session -d -s ros2-cluster -n dev
-tmux send-keys -t ros2-cluster:dev 'make dev' C-m
-
-tmux new-window -t ros2-cluster -n cross
-tmux send-keys -t ros2-cluster:cross 'make cross' C-m
-
-tmux new-window -t ros2-cluster -n voxl
-tmux send-keys -t ros2-cluster:voxl 'make voxl-shell' C-m
-
-tmux new-window -t ros2-cluster -n watch
-tmux send-keys -t ros2-cluster:watch 'make dev' C-m
-
-tmux attach -t ros2-cluster
-```
-
-Inside `watch`, run short checks in dedicated panes instead of mixing output with launch logs. -->
-
 
 
 ### Build commands (scripts/build.sh)

@@ -2,8 +2,9 @@
 """Plot nn_inference_node metrics from CSV logs.
 
 Usage:
-  python3 scripts/plot_nn_metrics.py --csv /ros2_ws/log/nn_inference_logs/metrics_YYYYMMDD_HHMMSS.csv
-  python3 scripts/plot_nn_metrics.py --logs-dir /ros2_ws/log/nn_inference_logs
+    python3 scripts/plot_nn_metrics.py --csv /ros2_ws/log/nn_inference_logs/metrics_YYYYMMDD_HHMMSS.csv
+    python3 scripts/plot_nn_metrics.py --logs-dir /ros2_ws/log/nn_inference_logs
+    python3 scripts/plot_nn_metrics.py REGRESSION --logs-dir /ros2_ws/log/nn_XOR_logs
 
 Outputs PNG plots and summary JSON in the chosen output directory.
 """
@@ -42,23 +43,49 @@ class MetricsRow:
     classes: dict[str, int]
 
 
+@dataclass
+class PlotConfig:
+    regression_only: bool
+    default_logs_dir: str
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot nn_inference_node metrics CSV files.")
-    parser.add_argument("path", nargs="?", default="/ros2_ws/log/nn_inference_logs", help="CSV file or directory containing metrics_*.csv")
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help=(
+            "Optional positional mode or CSV/directory path. Use REGRESSION to plot only "
+            "preprocess/infer/postprocess timing series for XOR logs."
+        ),
+    )
     parser.add_argument("--csv", dest="csv_path", help="Explicit CSV file path.")
     parser.add_argument("--logs-dir", dest="logs_dir", help="Directory containing metrics_*.csv files.")
     parser.add_argument("--outdir", default=None, help="Directory for generated plots and summary JSON. Defaults to <csv_dir>/plots")
     return parser.parse_args()
 
 
+def plot_config(args: argparse.Namespace) -> PlotConfig:
+    regression_only = args.target == "REGRESSION"
+    return PlotConfig(
+        regression_only=regression_only,
+        default_logs_dir="/ros2_ws/log/nn_XOR_logs" if regression_only else "/ros2_ws/log/nn_inference_logs",
+    )
+
+
 def newest_metrics_csv(directory: Path) -> Path:
-    candidates = sorted(directory.glob("metrics_*.csv"), key=lambda path: path.stat().st_mtime, reverse=True)
+    candidates = sorted(
+        directory.rglob("metrics_*.csv"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
     if not candidates:
         raise FileNotFoundError(f"No metrics_*.csv files found in {directory}")
     return candidates[0]
 
 
-def resolve_csv_path(args: argparse.Namespace) -> Path:
+def resolve_csv_path(args: argparse.Namespace, config: PlotConfig) -> Path:
     if args.csv_path:
         return Path(args.csv_path).expanduser().resolve()
 
@@ -68,7 +95,15 @@ def resolve_csv_path(args: argparse.Namespace) -> Path:
             return directory
         return newest_metrics_csv(directory)
 
-    path = Path(args.path).expanduser().resolve()
+    if args.target and args.target != "REGRESSION":
+        path = Path(args.target).expanduser().resolve()
+        if path.is_file():
+            return path
+        if path.is_dir():
+            return newest_metrics_csv(path)
+        raise FileNotFoundError(f"Path does not exist: {path}")
+
+    path = Path(config.default_logs_dir).expanduser().resolve()
     if path.is_file():
         return path
     if path.is_dir():
@@ -207,49 +242,86 @@ def write_summary(rows: list[MetricsRow], csv_path: Path, outdir: Path) -> Path:
     return summary_path
 
 
+def write_regression_summary(rows: list[MetricsRow], csv_path: Path, outdir: Path) -> Path:
+    summary = {
+        "csv_file": str(csv_path),
+        "frames": len(rows),
+        "preprocess_ms_mean": round(mean(row.preprocess_ms for row in rows), 3),
+        "infer_ms_mean": round(mean(row.infer_ms for row in rows), 3),
+        "postprocess_ms_mean": round(mean(row.postprocess_ms for row in rows), 3),
+    }
+    summary_path = outdir / "summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2) + "\n")
+    return summary_path
+
+
+def series_x_values(rows: list[MetricsRow]) -> tuple[list[int], str]:
+    frames = [row.frame for row in rows]
+    if any(frame != 0 for frame in frames):
+        return frames, "Frame"
+    return list(range(1, len(rows) + 1)), "Sample"
+
+
 def main() -> int:
     args = parse_args()
-    csv_path = resolve_csv_path(args)
+    config = plot_config(args)
+    csv_path = resolve_csv_path(args, config)
     rows = load_rows(csv_path)
     if not rows:
         raise SystemExit(f"No usable rows found in {csv_path}")
 
     outdir = ensure_outdir(csv_path, args.outdir)
-    frames = [row.frame for row in rows]
-    latency = [row.latency_ms for row in rows]
-    fps = [row.fps for row in rows]
-    avg_conf_values = [row.avg_confidence for row in rows]
-    min_conf_values = [row.min_confidence for row in rows]
-    max_conf_values = [row.max_confidence for row in rows]
+    x_values, x_label = series_x_values(rows)
     preprocess = [row.preprocess_ms for row in rows]
     inference = [row.infer_ms for row in rows]
     postprocess = [row.postprocess_ms for row in rows]
 
     plot_line(
-        frames,
-        {"latency_ms": latency},
-        "Total Latency Over Time",
-        "Frame",
-        "Latency (ms)",
-        outdir / "latency_over_time.png",
-    )
-    plot_line(
-        frames,
+        x_values,
         {
             "preprocess_ms": preprocess,
             "infer_ms": inference,
             "postprocess_ms": postprocess,
         },
-        "Latency Breakdown Over Time",
-        "Frame",
+        "XOR Timing Breakdown Over Time" if config.regression_only else "Latency Breakdown Over Time",
+        x_label,
         "Time (ms)",
-        outdir / "latency_breakdown_over_time.png",
+        outdir / ("xor_timing_breakdown_over_time.png" if config.regression_only else "latency_breakdown_over_time.png"),
+    )
+    if config.regression_only:
+        summary_path = write_regression_summary(rows, csv_path, outdir)
+        print(f"Mode: REGRESSION")
+        print(f"CSV: {csv_path}")
+        print(f"Plots: {outdir}")
+        print(f"Summary: {summary_path}")
+        print(f"Frames: {len(rows)}")
+        print(
+            "Timing ms: "
+            f"preprocess_mean={mean(preprocess):.3f}, "
+            f"infer_mean={mean(inference):.3f}, "
+            f"postprocess_mean={mean(postprocess):.3f}"
+        )
+        return 0
+
+    latency = [row.latency_ms for row in rows]
+    fps = [row.fps for row in rows]
+    avg_conf_values = [row.avg_confidence for row in rows]
+    min_conf_values = [row.min_confidence for row in rows]
+    max_conf_values = [row.max_confidence for row in rows]
+
+    plot_line(
+        x_values,
+        {"latency_ms": latency},
+        "Total Latency Over Time",
+        x_label,
+        "Latency (ms)",
+        outdir / "latency_over_time.png",
     )
     plot_line(
-        frames,
+        x_values,
         {"fps": fps},
         "FPS Over Time",
-        "Frame",
+        x_label,
         "FPS",
         outdir / "fps_over_time.png",
     )

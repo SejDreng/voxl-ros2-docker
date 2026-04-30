@@ -95,8 +95,8 @@ voxl-logs: ## Show voxl-drone container logs
 	@$(SCRIPT) voxl-logs
 
 .PHONY: pull-voxl-logs
-pull-voxl-logs: ## Pull nn_inference logs from VOXL into local repo
-	@$(SCRIPT) pull-voxl-logs
+pull-voxl-logs: ## Pull logs from VOXL into local repo (use LOG_DIR=package_subdir)
+	@$(SCRIPT) pull-voxl-logs $(LOG_DIR)
 
 .PHONY: voxl-stop
 voxl-stop: ## Stop the voxl-drone container

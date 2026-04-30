@@ -445,9 +445,11 @@ cmd_voxl_logs() {
 }
 
 cmd_pull_voxl_logs() {
-    local remote_logs_dir="${VOXL_DIR}/ros2_ws/log/nn_inference_logs"
-    local preferred_local_logs_dir="${PROJECT_DIR}/ros2_ws/log/nn_inference_logs/voxl/${VOXL_HOST}"
-    local fallback_local_logs_dir="${PROJECT_DIR}/nn_inference_logs/voxl/${VOXL_HOST}"
+    local remote_logs_subdir="${1:-nn_inference_logs}"
+    local remote_logs_dir="${VOXL_DIR}/ros2_ws/log/${remote_logs_subdir}"
+    local remote_container_name="${VOXL_CONTAINER_NAME:-voxl-runtime}"
+    local preferred_local_logs_dir="${PROJECT_DIR}/ros2_ws/log/${remote_logs_subdir}/voxl/${VOXL_HOST}"
+    local fallback_local_logs_dir="${PROJECT_DIR}/${remote_logs_subdir}/voxl/${VOXL_HOST}"
     local local_logs_dir="${preferred_local_logs_dir}"
 
     if ! mkdir -p "${preferred_local_logs_dir}" 2>/dev/null; then
@@ -457,14 +459,33 @@ cmd_pull_voxl_logs() {
     fi
 
     echo "==> Pulling VOXL logs from ${VOXL_USER}@${VOXL_HOST}:${remote_logs_dir}/"
-    if ! ssh "${VOXL_USER}@${VOXL_HOST}" "test -d '${remote_logs_dir}'"; then
-        echo "==> No remote log directory found at ${remote_logs_dir}" >&2
-        return 1
-    fi
+    if ssh "${VOXL_USER}@${VOXL_HOST}" "test -d '${remote_logs_dir}'"; then
+        rsync -avz --progress \
+            "${VOXL_USER}@${VOXL_HOST}:${remote_logs_dir}/" \
+            "${local_logs_dir}/"
+    else
+        local container_log_dir="/ros2_ws/log/${remote_logs_subdir}"
+        echo "==> Host path not found; trying container ${remote_container_name}:${container_log_dir}" >&2
 
-    rsync -avz --progress \
-        "${VOXL_USER}@${VOXL_HOST}:${remote_logs_dir}/" \
-        "${local_logs_dir}/"
+        if ! ssh "${VOXL_USER}@${VOXL_HOST}" "docker inspect -f '{{.State.Running}}' '${remote_container_name}' >/dev/null 2>&1"; then
+            echo "==> No host path found and container '${remote_container_name}' is not available" >&2
+            return 1
+        fi
+
+        if ! ssh "${VOXL_USER}@${VOXL_HOST}" "docker exec '${remote_container_name}' test -d '${container_log_dir}'"; then
+            echo "==> No container log directory found at ${container_log_dir}" >&2
+            return 1
+        fi
+
+        local extract_parent_dir
+        extract_parent_dir="$(dirname "${local_logs_dir}")"
+        mkdir -p "${extract_parent_dir}"
+        rm -rf "${local_logs_dir}"
+
+        ssh "${VOXL_USER}@${VOXL_HOST}" \
+            "docker exec '${remote_container_name}' tar -C /ros2_ws/log -cf - '${remote_logs_subdir}'" \
+            | tar -xf - -C "${extract_parent_dir}"
+    fi
 
     echo "==> Pulled logs into ${local_logs_dir}"
 }
@@ -494,7 +515,7 @@ case "${1:-}" in
     voxl-start)       cmd_voxl_start ;;
     voxl-shell)       cmd_voxl_shell ;;
     voxl-logs)        cmd_voxl_logs ;;
-    pull-voxl-logs)   cmd_pull_voxl_logs ;;
+    pull-voxl-logs)   shift; cmd_pull_voxl_logs "$@" ;;
     voxl-stop)        cmd_voxl_stop ;;
     help)             help ;;
     *)                help ;;
