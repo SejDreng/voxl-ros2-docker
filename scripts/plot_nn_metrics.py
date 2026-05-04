@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional positional mode or CSV/directory path. Use REGRESSION to plot only "
-            "preprocess/infer/postprocess timing series for XOR logs."
+            "preprocess/infer/postprocess timing series for regression logs."
         ),
     )
     parser.add_argument("--csv", dest="csv_path", help="Explicit CSV file path.")
@@ -70,7 +70,7 @@ def plot_config(args: argparse.Namespace) -> PlotConfig:
     regression_only = args.target == "REGRESSION"
     return PlotConfig(
         regression_only=regression_only,
-        default_logs_dir="/ros2_ws/log/nn_XOR_logs" if regression_only else "/ros2_ws/log/nn_inference_logs",
+        default_logs_dir="/ros2_ws/log/nn_inference_logs",
     )
 
 
@@ -283,10 +283,10 @@ def main() -> int:
             "infer_ms": inference,
             "postprocess_ms": postprocess,
         },
-        "XOR Timing Breakdown Over Time" if config.regression_only else "Latency Breakdown Over Time",
+        "Latency Breakdown Over Time",
         x_label,
         "Time (ms)",
-        outdir / ("xor_timing_breakdown_over_time.png" if config.regression_only else "latency_breakdown_over_time.png"),
+        outdir / ("latency_breakdown_over_time.png"),
     )
     if config.regression_only:
         summary_path = write_regression_summary(rows, csv_path, outdir)

@@ -1,23 +1,14 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
-import torchvision.transforms as transforms
-from torchvision.transforms import ToTensor
-import torchvision.transforms.functional as F
-import torchvision
-import torch.onnx
-from ultralytics import YOLO
 from torchinfo import summary
 
 import os
 import argparse
 import subprocess
 import sys
-import shutil
 from pathlib import Path
 import numpy as np
-
-import tensorflow as tf
 
 
 if torch.cuda.is_available():
@@ -28,43 +19,82 @@ else:
 # ====================================Path Configuration========================================== #
 
 
-# REPLACE WITH YOUR OWN MODEL NAME
-MODEL_NAME = 'yolov8n.pt'
-MODEL_PREFIX = Path(MODEL_NAME).stem
-DUMMY_INPUT_SHAPE = (1, 3, 640, 640)  # Adjust as needed for your model
+# # REPLACE WITH YOUR OWN MODEL NAME
+# MODEL_NAME = 'best_model_20260319-141220_dp.pt'
+# # MODEL_NAME = 'yolov8n.pt'
+# MODEL_PREFIX = Path(MODEL_NAME).stem
+# # DUMMY_INPUT_SHAPE = (1, 3, 640, 640)  # Adjust as needed for your model
+# DUMMY_INPUT_SHAPE = (1, 16)  # Adjust as needed for your model
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_PATH = PROJECT_ROOT / 'models'
 
-# REPLACE WITH YOUR OWN CALIBRATION DATA PATH
 CALIBRATION_DATA_PATH = MODELS_PATH / 'quantization_data' / 'Images'
 CALIBRATION_NPY_PATH = MODELS_PATH / 'quantization_data' / 'calibration_data.npy'
 
-TFLITE_MODELS_PATH = MODELS_PATH / 'saved_models'
+# Default model (can be overridden via --model CLI arg)
+DEFAULT_MODEL_NAME = 'best_model_20260319-141220_dp.pt'
+DEFAULT_INPUT_SHAPE = (1, 16)
 
 
 # ==================================Specify Model============================================ #
 
 class NNmodel(nn.Module):
-    def __init__(self):
+    def __init__(self, model_path: str):
         super(NNmodel, self).__init__()
-        
-        # yolo = YOLO('yolov8n.pt')  # downloads weights if not cached
-        # self.model = yolo.model.float().to(device)
-        
-        # alternative, load yolo model from local file
-        model_path = str(MODELS_PATH / MODEL_NAME)
-        model = torch.load(model_path, map_location=device, weights_only=False)
-        self.model = model['model'].float().to(device)
+        self.model, self.is_torchscript = self._load_model(model_path)
+
+    @staticmethod
+    def _load_model(model_path: str) -> tuple[torch.nn.Module, bool]:
+        """Load either a checkpoint dict, a regular module, or a TorchScript archive."""
+        loaded = torch.load(model_path, map_location=device, weights_only=False)
+
+        if isinstance(loaded, dict) and 'model' in loaded:
+            return loaded['model'].float().to(device), False
+
+        if isinstance(loaded, torch.jit.ScriptModule):
+            return loaded, True
+
+        return loaded, False
 
     def forward(self, x: Tensor) -> Tensor:
         return self.model(x)
     
 # ==================================Export Pipeline============================================ #
+
+
+def resolve_model_path(model_arg: str | None) -> Path:
+    """Resolve the model path relative to the models directory when needed."""
+    if model_arg is None:
+        return MODELS_PATH / DEFAULT_MODEL_NAME
+
+    model_path = Path(model_arg)
+    if not model_path.is_absolute():
+        model_path = MODELS_PATH / model_path
+    return model_path
+
+
+def parse_input_shape(shape_arg: str | None) -> tuple[int, ...]:
+    """Parse a comma-separated input shape string into a tuple of ints."""
+    if shape_arg is None:
+        return DEFAULT_INPUT_SHAPE
+
+    try:
+        return tuple(int(value.strip()) for value in shape_arg.split(','))
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid input shape: {shape_arg}. Expected comma-separated integers."
+        ) from exc
     
-def get_calibration_npy() -> str | None:
-    expected_h = int(DUMMY_INPUT_SHAPE[2])
-    expected_w = int(DUMMY_INPUT_SHAPE[3])
+def get_calibration_npy(input_shape: tuple) -> str | None:
+    # For image inputs (4D), extract H and W; for other shapes, skip calibration
+    if len(input_shape) < 4:
+        print(f"Input shape {input_shape} is not image-like (need 4D NCHW). Skipping calibration.")
+        return None
+    
+    expected_h = int(input_shape[2])
+    expected_w = int(input_shape[3])
 
     if CALIBRATION_NPY_PATH.is_file():
         try:
@@ -277,17 +307,46 @@ def run_validation_phase(onnx_path: str, output_dir: str) -> None:
         print(f"Validation phase failed (exit={exc.returncode}). Conversion artifacts are still available.")
 
 
-def export_to_tflite(model, dummy_input, validate: bool = False):
+def export_to_tflite(model, dummy_input, validate: bool = False, skip_quantization: bool = False, model_prefix: str = 'model'):
     # Convert the PyTorch model to ONNX format
-    onnx_path = str(MODELS_PATH / f'{MODEL_PREFIX}.onnx')
-    torch.onnx.export(model, dummy_input, onnx_path, export_params=True)
+    onnx_path = str(MODELS_PATH / f'{model_prefix}.onnx')
+    
+    # Check if model is a TorchScript model and export it appropriately
+    if model.is_torchscript:
+        print("Detected TorchScript model. Exporting to ONNX using the legacy exporter...")
+        torch.onnx.utils.export(
+            model.model,
+            dummy_input,
+            onnx_path,
+            export_params=True,
+            opset_version=12,
+            do_constant_folding=True,
+            verbose=False,
+            input_names=['input'],
+            output_names=['output']
+        )
+    else:
+        torch.onnx.export(model, dummy_input, onnx_path, export_params=True)
 
     # Convert the ONNX model to TFLite via onnx2tf
     onnx2tf_output_dir = str(MODELS_PATH / 'saved_model')
     os.makedirs(onnx2tf_output_dir, exist_ok=True)
 
-    calibration_npy = get_calibration_npy()
-    run_quantization_phase(onnx_path, onnx2tf_output_dir, calibration_npy)
+    if skip_quantization:
+        print("Skipping quantization phase (--skip-quantization flag set).")
+        # Run float32 conversion without calibration
+        ensure_onnx2tf_sample_data_file()
+        float_cmd = build_onnx2tf_cmd(
+            onnx_path,
+            onnx2tf_output_dir,
+            calibration_npy=None,
+            include_quantization=False,
+            include_validation=False,
+        )
+        subprocess.run(float_cmd, check=True)
+    else:
+        calibration_npy = get_calibration_npy(dummy_input.shape)
+        run_quantization_phase(onnx_path, onnx2tf_output_dir, calibration_npy)
 
     if validate:
         run_validation_phase(onnx_path, onnx2tf_output_dir)
@@ -298,20 +357,47 @@ def export_to_tflite(model, dummy_input, validate: bool = False):
 def main():
     parser = argparse.ArgumentParser(description='PyTorch -> ONNX -> TFLite export pipeline.')
     parser.add_argument(
+        '--model',
+        type=str,
+        default=None,
+        help=f'Path to model file (default: {MODELS_PATH / DEFAULT_MODEL_NAME})',
+    )
+    parser.add_argument(
+        '--input-shape',
+        type=str,
+        default=None,
+        help=f'Input shape as comma-separated integers (default: {DEFAULT_INPUT_SHAPE}). Example: 1,16 or 1,3,224,224',
+    )
+    parser.add_argument(
         '--validate',
         action='store_true',
         help='Run an additional ONNX↔TF validation phase after conversion.',
     )
+    parser.add_argument(
+        '--skip-quantization',
+        action='store_true',
+        help='Skip calibration data phase and export as float32 TFLite (no quantization).',
+    )
     args = parser.parse_args()
 
-    # model = XOR_model().to(device)
-    model = NNmodel().to(device)
+    model_path = resolve_model_path(args.model)
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    
+    model_prefix = model_path.stem
+
+    input_shape = parse_input_shape(args.input_shape)
+    
+    print(f"Model: {model_path}")
+    print(f"Input shape: {input_shape}")
+
+    model = NNmodel(str(model_path)).to(device)
     model.eval()
  
-    dummy_input = torch.randn(*DUMMY_INPUT_SHAPE, device=device)
+    dummy_input = torch.randn(*input_shape, device=device)
 
-    summary(model, input_size=DUMMY_INPUT_SHAPE)
-    export_to_tflite(model, dummy_input, validate=args.validate)
+    summary(model, input_size=input_shape)
+    export_to_tflite(model, dummy_input, validate=args.validate, skip_quantization=args.skip_quantization, model_prefix=model_prefix)
 
 if __name__ == '__main__':
     main()
