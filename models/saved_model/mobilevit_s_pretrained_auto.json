@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "operations": [
+    {
+      "op_name": "node_cat",
+      "param_target": "attributes",
+      "param_name": "axis",
+      "values": 3
+    }
+  ],
+  "_comment": "Auto-generated replacement for mobilevit_s_pretrained",
+  "_accuracy_threshold": 0.0001,
+  "_generation_reason": "accuracy_error",
+  "_iterations": 2
+}

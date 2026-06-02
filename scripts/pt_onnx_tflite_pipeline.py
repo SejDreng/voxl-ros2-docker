@@ -1,8 +1,8 @@
 import argparse
-import subprocess
-import sys
+import onnx2tf
+import timm
 from pathlib import Path
-from ultralytics import YOLO
+from ultralytics import RTDETR, YOLO
 
 import torch
 import torch.nn as nn
@@ -17,8 +17,8 @@ else:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_PATH = PROJECT_ROOT / 'models'
-DEFAULT_MODEL_NAME = 'best_model_20260319-141220_dp.pt'
-DEFAULT_INPUT_SHAPE = (1, 16)
+DEFAULT_MODEL_NAME = 'xor_model.pt'
+DEFAULT_INPUT_SHAPE = (1, 2)
 DEFAULT_ONNX_OPSET = 18
 
 
@@ -45,6 +45,17 @@ class NNModel(nn.Module):
 
         if isinstance(loaded, nn.Module):
             return loaded, False
+        
+        if isinstance(loaded, dict) or isinstance(loaded, torch.OrderedDict):
+            # Loaded is a state_dict (weights) - load into a new model instance
+            # You must know the model architecture here:
+            model_name = "mobilevit_s"  # or pass this as argument
+            model = timm.create_model(model_name, pretrained=False)
+            model.load_state_dict(loaded)
+            model.to(DEVICE)
+            model.eval()
+            return model, False
+
 
         raise TypeError(
             f'Unsupported model type from {model_path}: {type(loaded).__name__}. '
@@ -111,28 +122,23 @@ def export_to_onnx(model: NNModel, dummy_input: Tensor, model_prefix: str, onnx_
 
     return onnx_path
 
-
 def convert_onnx_to_tflite(onnx_path: Path, output_dir: Path, validate: bool) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        sys.executable,
-        '-m',
-        'onnx2tf',
-        '-i',
-        str(onnx_path),
-        '-o',
-        str(output_dir),
-        '-b',
-        '1',
-    ]
-
-    if validate:
-        cmd += ['-cotof', '-dms']
-
-    subprocess.run(cmd, check=True)
-
-
+    onnx2tf.convert(
+        input_onnx_file_path=str(onnx_path),
+        output_folder_path=str(output_dir),
+        copy_onnx_input_output_names_to_tflite=validate,
+        check_onnx_tf_outputs_elementwise_close=validate,
+        check_onnx_tf_outputs_elementwise_close_full=validate,
+        output_dynamic_range_quantized_tflite=True,
+        non_verbose=False,
+        # disable_suppression_flexstridedslice=False,
+        # number_of_dimensions_after_flexstridedslice_compression=10,
+        auto_generate_json=True,       # generates a param_replacement.json
+        auto_generate_json_on_error=True,  # also generates on error
+    )
+    
 def main() -> None:
     parser = argparse.ArgumentParser(description='Regression model: PyTorch -> ONNX -> TFLite export.')
     parser.add_argument(
@@ -169,6 +175,11 @@ def main() -> None:
         action='store_true',
         help='Use YOLO model.',
     )
+    parser.add_argument(
+        '--RTDETR',
+        action='store_true',
+        help='Use RT-DETR model.',
+    )
     args = parser.parse_args()
 
     model_path = resolve_model_path(args.model)
@@ -181,15 +192,27 @@ def main() -> None:
     print(f'Model: {model_path}')
     print(f'Input shape: {input_shape}')
 
-    if args.YOLO:
-        model = YOLO(str(model_path))
-        model.export(
-            format='tflite',
-            imgsz=input_shape[1],  # input size (height and width)
-            int8=True,  # enable INT8 quantization
-        )
-        return 
-        
+    if args.YOLO or args.RTDETR:
+        if args.YOLO and args.RTDETR:
+            raise ValueError('Choose only one detector type: --YOLO or --RTDETR.')
+        if args.YOLO:
+            model = YOLO(str(model_path))
+            model.export(
+                format='tflite',
+                imgsz=input_shape[2],  # input size (height and width)
+                int8=True,  # enable INT8 quantization
+            )
+        else:
+            model = RTDETR(str(model_path))
+            model.export(
+                format='tflite',
+                imgsz=input_shape[2],  # input size (height and width)
+                # int8=True,  # enable INT8 quantization
+                simplify=True,
+                nms=False,   
+            )
+        return
+
     else:
         model = NNModel(str(model_path)).to(DEVICE)
         model.eval()

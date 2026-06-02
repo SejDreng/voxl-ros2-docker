@@ -33,6 +33,7 @@ class MetricsRow:
     latency_ms: float
     preprocess_ms: float
     infer_ms: float
+    bridge_delay_ms: float
     postprocess_ms: float
     detections: int
     avg_confidence: float
@@ -117,14 +118,25 @@ def load_rows(csv_path: Path) -> list[MetricsRow]:
         reader = csv.DictReader(handle)
         for raw in reader:
             try:
+                preprocess_ms = float(raw.get("preprocess_ms", 0) or 0)
+                infer_ms = float(raw.get("infer_ms", 0) or 0)
+                bridge_delay_ms = float(raw.get("bridge_delay_ms", 0) or 0)
+                postprocess_ms = float(raw.get("postprocess_ms", 0) or 0)
+                latency_value = raw.get("latency_ms")
+                if latency_value in (None, ""):
+                    latency_value = raw.get("callback_ms")
+                if latency_value in (None, ""):
+                    latency_value = preprocess_ms + infer_ms + bridge_delay_ms + postprocess_ms
+
                 rows.append(
                     MetricsRow(
-                        frame=int(float(raw.get("frame", 0) or 0)),
-                        fps=float(raw.get("fps", 0) or 0),
-                        latency_ms=float(raw.get("latency_ms", 0) or 0),
-                        preprocess_ms=float(raw.get("preprocess_ms", 0) or 0),
-                        infer_ms=float(raw.get("infer_ms", 0) or 0),
-                        postprocess_ms=float(raw.get("postprocess_ms", 0) or 0),
+                        frame=int(float(raw.get("frame", raw.get("frame_id", 0)) or 0)),
+                        fps=float(raw.get("fps", raw.get("node_fps", raw.get("source_fps", 0))) or 0),
+                        latency_ms=float(latency_value or 0),
+                        preprocess_ms=preprocess_ms,
+                        infer_ms=infer_ms,
+                        bridge_delay_ms=bridge_delay_ms,
+                        postprocess_ms=postprocess_ms,
                         detections=int(float(raw.get("detections", 0) or 0)),
                         avg_confidence=float(raw.get("avg_confidence", 0) or 0),
                         min_confidence=float(raw.get("min_confidence", 0) or 0),
@@ -227,6 +239,7 @@ def write_summary(rows: list[MetricsRow], csv_path: Path, outdir: Path) -> Path:
         },
         "preprocess_ms_mean": round(mean(row.preprocess_ms for row in rows), 3),
         "infer_ms_mean": round(mean(row.infer_ms for row in rows), 3),
+        "bridge_delay_ms_mean": round(mean(row.bridge_delay_ms for row in rows), 3),
         "postprocess_ms_mean": round(mean(row.postprocess_ms for row in rows), 3),
         "detections_mean": round(mean(row.detections for row in rows), 3),
         "confidence": {
@@ -248,6 +261,7 @@ def write_regression_summary(rows: list[MetricsRow], csv_path: Path, outdir: Pat
         "frames": len(rows),
         "preprocess_ms_mean": round(mean(row.preprocess_ms for row in rows), 3),
         "infer_ms_mean": round(mean(row.infer_ms for row in rows), 3),
+        "bridge_delay_ms_mean": round(mean(row.bridge_delay_ms for row in rows), 3),
         "postprocess_ms_mean": round(mean(row.postprocess_ms for row in rows), 3),
     }
     summary_path = outdir / "summary.json"
@@ -262,6 +276,21 @@ def series_x_values(rows: list[MetricsRow]) -> tuple[list[int], str]:
     return list(range(1, len(rows) + 1)), "Sample"
 
 
+def _is_meaningful_series(values: Iterable[float]) -> bool:
+    values = list(values)
+    return any(abs(value) > 1e-9 for value in values)
+
+
+def timing_series(rows: list[MetricsRow]) -> dict[str, list[float]]:
+    candidates = {
+        "preprocess_ms": [row.preprocess_ms for row in rows],
+        "infer_ms": [row.infer_ms for row in rows],
+        "bridge_delay_ms": [row.bridge_delay_ms for row in rows],
+        "postprocess_ms": [row.postprocess_ms for row in rows],
+    }
+    return {name: values for name, values in candidates.items() if _is_meaningful_series(values)}
+
+
 def main() -> int:
     args = parse_args()
     config = plot_config(args)
@@ -272,22 +301,17 @@ def main() -> int:
 
     outdir = ensure_outdir(csv_path, args.outdir)
     x_values, x_label = series_x_values(rows)
-    preprocess = [row.preprocess_ms for row in rows]
-    inference = [row.infer_ms for row in rows]
-    postprocess = [row.postprocess_ms for row in rows]
+    timing = timing_series(rows)
 
-    plot_line(
-        x_values,
-        {
-            "preprocess_ms": preprocess,
-            "infer_ms": inference,
-            "postprocess_ms": postprocess,
-        },
-        "Latency Breakdown Over Time",
-        x_label,
-        "Time (ms)",
-        outdir / ("latency_breakdown_over_time.png"),
-    )
+    if timing:
+        plot_line(
+            x_values,
+            timing,
+            "Latency Breakdown Over Time",
+            x_label,
+            "Time (ms)",
+            outdir / ("latency_breakdown_over_time.png"),
+        )
     if config.regression_only:
         summary_path = write_regression_summary(rows, csv_path, outdir)
         print(f"Mode: REGRESSION")
@@ -297,9 +321,10 @@ def main() -> int:
         print(f"Frames: {len(rows)}")
         print(
             "Timing ms: "
-            f"preprocess_mean={mean(preprocess):.3f}, "
-            f"infer_mean={mean(inference):.3f}, "
-            f"postprocess_mean={mean(postprocess):.3f}"
+            f"preprocess_mean={mean(row.preprocess_ms for row in rows):.3f}, "
+            f"infer_mean={mean(row.infer_ms for row in rows):.3f}, "
+            f"bridge_delay_mean={mean(row.bridge_delay_ms for row in rows):.3f}, "
+            f"postprocess_mean={mean(row.postprocess_ms for row in rows):.3f}"
         )
         return 0
 
