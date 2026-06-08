@@ -1,6 +1,7 @@
 import argparse
 import onnx2tf
 import timm
+import numpy as np
 from pathlib import Path
 from ultralytics import RTDETR, YOLO
 
@@ -8,6 +9,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torchinfo import summary
+from collections import OrderedDict
 
 
 if torch.cuda.is_available():
@@ -20,6 +22,7 @@ MODELS_PATH = PROJECT_ROOT / 'models'
 DEFAULT_MODEL_NAME = 'xor_model.pt'
 DEFAULT_INPUT_SHAPE = (1, 2)
 DEFAULT_ONNX_OPSET = 18
+CALIBRATION_SAMPLES = 100
 
 
 class NNModel(nn.Module):
@@ -45,17 +48,15 @@ class NNModel(nn.Module):
 
         if isinstance(loaded, nn.Module):
             return loaded, False
-        
-        if isinstance(loaded, dict) or isinstance(loaded, torch.OrderedDict):
-            # Loaded is a state_dict (weights) - load into a new model instance
-            # You must know the model architecture here:
-            model_name = "mobilevit_s"  # or pass this as argument
+
+        if isinstance(loaded, (dict, OrderedDict)):
+            # Loaded is a state_dict — requires known architecture
+            model_name = 'mobilevitv2_100'
             model = timm.create_model(model_name, pretrained=False)
             model.load_state_dict(loaded)
             model.to(DEVICE)
             model.eval()
             return model, False
-
 
         raise TypeError(
             f'Unsupported model type from {model_path}: {type(loaded).__name__}. '
@@ -94,51 +95,74 @@ def export_to_onnx(model: NNModel, dummy_input: Tensor, model_prefix: str, onnx_
     export_model = model.model if model.is_torchscript else model
     export_model.eval()
 
-    if model.is_torchscript:
-        torch.onnx.export(
-            export_model,
-            (dummy_input,),
-            str(onnx_path),
-            export_params=True,
-            opset_version=onnx_opset,
-            do_constant_folding=True,
-            verbose=False,
-            input_names=['inputs_0'],
-            output_names=['Identity'],
-            dynamo=False,
-        )
-    else:
-        torch.onnx.export(
-            export_model,
-            (dummy_input,),
-            str(onnx_path),
-            export_params=True,
-            opset_version=onnx_opset,
-            do_constant_folding=True,
-            verbose=False,
-            input_names=['inputs_0'],
-            output_names=['Identity'],
-        )
+    torch.onnx.export(
+        export_model,
+        (dummy_input,),
+        str(onnx_path),
+        export_params=True,
+        opset_version=onnx_opset,
+        do_constant_folding=True,
+        verbose=False,
+        input_names=['inputs_0'],
+        output_names=['Identity'],
+        dynamo=False if model.is_torchscript else True,
+    )
 
     return onnx_path
 
-def convert_onnx_to_tflite(onnx_path: Path, output_dir: Path, validate: bool) -> None:
+
+def make_calib_data(input_shape: tuple[int, ...], n: int = CALIBRATION_SAMPLES) -> Path:
+    calib_path = MODELS_PATH / 'calib_data.npy'
+    # input_shape is NCHW from torch (1, 3, H, W) — save as-is for onnxruntime
+    data = np.random.rand(n, *input_shape[1:]).astype(np.float32)
+    np.save(str(calib_path), data)
+    return calib_path
+
+
+def convert_onnx_to_tflite(
+    onnx_path: Path,
+    output_dir: Path,
+    input_shape: tuple[int, ...],
+    validate: bool,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    is_image_input = len(input_shape) == 4
+    calib_path = make_calib_data(input_shape)
+
+    if is_image_input:
+        calib_mean = '[[[[0.0]], [[0.0]], [[0.0]]]]'
+        calib_std  = '[[[[1.0]], [[1.0]], [[1.0]]]]'
+    else:
+        calib_mean = '[[0.0]]'
+        calib_std  = '[[1.0]]'
 
     onnx2tf.convert(
         input_onnx_file_path=str(onnx_path),
         output_folder_path=str(output_dir),
+        # only pass for image models — 2D inputs don't have a channel layout to preserve
+        **({"keep_ncw_or_nchw_or_ncdhw_input_names": ["inputs_0"]} if is_image_input else {}),
+        output_dynamic_range_quantized_tflite=True,
+        output_integer_quantized_tflite=True,
+        disable_suppression_flexstridedslice=True,
+        number_of_dimensions_after_flexstridedslice_compression=10,
+        quant_type='per-channel',
+        input_quant_dtype='int8',
+        output_quant_dtype='int8',
+        quant_norm_mean=calib_mean,
+        quant_norm_std=calib_std,
+        custom_input_op_name_np_data_path=[
+            ['inputs_0', str(calib_path), 0.0, 1.0]
+        ],
         copy_onnx_input_output_names_to_tflite=validate,
         check_onnx_tf_outputs_elementwise_close=validate,
         check_onnx_tf_outputs_elementwise_close_full=validate,
-        output_dynamic_range_quantized_tflite=True,
+        auto_generate_json=True,
+        auto_generate_json_on_error=True,
         non_verbose=False,
-        # disable_suppression_flexstridedslice=False,
-        # number_of_dimensions_after_flexstridedslice_compression=10,
-        auto_generate_json=True,       # generates a param_replacement.json
-        auto_generate_json_on_error=True,  # also generates on error
     )
-    
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Regression model: PyTorch -> ONNX -> TFLite export.')
     parser.add_argument(
@@ -189,7 +213,7 @@ def main() -> None:
     input_shape = parse_input_shape(args.input_shape)
     model_prefix = model_path.stem
 
-    print(f'Model: {model_path}')
+    print(f'Model:       {model_path}')
     print(f'Input shape: {input_shape}')
 
     if args.YOLO or args.RTDETR:
@@ -199,32 +223,30 @@ def main() -> None:
             model = YOLO(str(model_path))
             model.export(
                 format='tflite',
-                imgsz=input_shape[2],  # input size (height and width)
-                int8=True,  # enable INT8 quantization
+                imgsz=input_shape[2],
+                int8=True,
             )
         else:
             model = RTDETR(str(model_path))
             model.export(
                 format='tflite',
-                imgsz=input_shape[2],  # input size (height and width)
-                # int8=True,  # enable INT8 quantization
+                imgsz=input_shape[2],
                 simplify=True,
-                nms=False,   
+                nms=False,
             )
         return
 
-    else:
-        model = NNModel(str(model_path)).to(DEVICE)
-        model.eval()
+    model = NNModel(str(model_path)).to(DEVICE)
+    model.eval()
 
     dummy_input = torch.randn(*input_shape, device=DEVICE)
     summary(model, input_size=input_shape)
 
     onnx_path = export_to_onnx(model, dummy_input, model_prefix, args.onnx_opset)
-    print(f'ONNX export complete: {onnx_path}')
+    print(f'ONNX export complete:   {onnx_path}')
 
     output_dir = Path(args.output_dir)
-    convert_onnx_to_tflite(onnx_path, output_dir, validate=args.validate)
+    convert_onnx_to_tflite(onnx_path, output_dir, input_shape, validate=args.validate)
     print(f'TFLite conversion complete: {output_dir}')
 
 

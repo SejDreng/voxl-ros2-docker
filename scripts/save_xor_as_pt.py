@@ -21,17 +21,17 @@ DEFAULT_OUTPUT = PROJECT_ROOT / "models" / "xor_model.pt"
 
 
 class XORModel(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
         self.linear1 = nn.Linear(2, 8)
         self.linear15 = nn.Linear(8, 2)
         self.linear2 = nn.Linear(2, 1)
-        self.activation = nn.Tanh()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.activation(self.linear1(x))
-        x = self.activation(self.linear15(x))
-        return self.linear2(x)
+    def forward(self, x):
+        x = torch.relu(self.linear1(x))
+        x = torch.relu(self.linear15(x))
+        x = torch.sigmoid(self.linear2(x))
+        return x
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,6 +56,12 @@ def main() -> None:
     model = XORModel()
     model.load_state_dict(state_dict)
     model.eval()
+    
+    # infer test input to ensure the model is properly loaded
+    with torch.no_grad():
+        test_input = torch.tensor([[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]])
+        test_output = model(test_input)
+        print(f"Test input:\n{test_input}\nTest output:\n{test_output}")
 
     scripted = torch.jit.script(model)
     scripted.save(str(output_path))
